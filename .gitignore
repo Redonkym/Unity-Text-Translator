@@ -1,0 +1,42 @@
+# ---- Build output ----
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+build.log
+*.user
+*.suo
+
+# ---- Visual Studio / IDE state (ВАЖНО: содержит абсолютные пути C:\Users\<имя>\... и историю открытых файлов) ----
+.vs/
+*.VC.db
+*.VC.opendb
+
+# ---- NuGet ----
+packages/
+*.nupkg
+.nuget/
+# Бутстраппер nuget.exe — 8 МБ бинарника, не нужен в репозитории (ставится отдельно).
+nuget.exe
+
+# ---- Локальная конфигурация инструментов ----
+.claude/settings.local.json
+
+# ---- Рабочие/временные артефакты msdf-atlas-gen ----
+Tools/msdf-atlas-gen/output/
+**/msdf-atlas-gen/output/
+**/stderr.txt
+**/stdout.txt
+
+# ---- Артефакты переводчика (на случай локальных дампов рядом с проектом) ----
+*.translated.assets
+*_utt_import_tmp
+*.utt-orig
+*.bak
+
+# ---- Прочее ----
+*.tmp
+Thumbs.db
+desktop.ini
