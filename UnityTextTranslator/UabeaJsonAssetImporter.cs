@@ -138,9 +138,25 @@ namespace UnityTextTranslator
                     fileInst.file.Write(writer);
                 }
 
-                result.CompanionResourceFilesCopied =
-                    UnitySerializedFileSidecars.CopyCompanionsToOutput(assetsPath, stagedWritePath, fileInst.file,
-                        result.Messages);
+                if (writeInPlace)
+                {
+                    // Запись ПОВЕРХ оригинала: парные .resS/.resource НЕ копируем. Импорт меняет только
+                    // MonoBehaviour и никогда не пишет в потоки, поэтому исходные побочники (resources.assets.resS
+                    // и т.п.) уже корректно соответствуют новому контейнеру по имени (текстуры стримятся из них
+                    // по жёсткому имени). Раньше здесь копировался весь resS (для resources.assets это ~1.9 ГБ
+                    // на КАЖДЫЙ импорт) во временный файл, а commit возвращал его поверх идентичного оригинала —
+                    // чистая трата времени и места. Коммит ниже подменит только основной контейнер.
+                    result.CompanionResourceFilesCopied = 0;
+                    if (result.Messages.Count < 200)
+                        result.Messages.Add(
+                            "[Sidecar] Запись поверх оригинала — парные .resS/.resource не трогаются (остаются исходные, имя совпадает). Копирование потоков пропущено для скорости.");
+                }
+                else
+                {
+                    result.CompanionResourceFilesCopied =
+                        UnitySerializedFileSidecars.CopyCompanionsToOutput(assetsPath, stagedWritePath, fileInst.file,
+                            result.Messages);
+                }
             }
             finally
             {

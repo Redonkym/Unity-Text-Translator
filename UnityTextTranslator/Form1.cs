@@ -31,11 +31,30 @@ namespace UnityTextTranslator
         private string sourceLanguageDisplay = "English (en)";
         private string targetLanguageDisplay = "Russian (ru)";
 
+        /// <summary>Пункт «авто-определение» источника (только для cbSrc). ExtractLangCode → «auto».</summary>
+        internal const string AutoDetectSourceOption = "Auto-detect (auto)";
+
+        /// <summary>
+        /// Языки перевода (цель), формат «Имя (код)»; код вынимает <see cref="LocalTranslateApi.ExtractLangCode"/>
+        /// из последних скобок. Коды — ISO 639-1; региональные теги zh-CN/zh-TW/pt-BR/pt-PT оставлены намеренно —
+        /// LLM-провайдеры дают по ним точнее. Существующие строки НЕ переименовывать (привязаны сохранённые настройки).
+        /// Источник (cbSrc) дополнительно получает <see cref="AutoDetectSourceOption"/> первым пунктом.
+        /// </summary>
         internal static readonly string[] UiLanguageOptions =
         {
-            "English (en)", "Russian (ru)", "Japanese (ja)", "Chinese Simplified (zh-CN)",
-            "Korean (ko)", "French (fr)", "German (de)", "Spanish (es)", "Portuguese (pt-BR)",
-            "Italian (it)", "Polish (pl)", "Turkish (tr)", "Ukrainian (uk)"
+            "Afrikaans (af)", "Albanian (sq)", "Amharic (am)", "Arabic (ar)", "Armenian (hy)",
+            "Azerbaijani (az)", "Basque (eu)", "Belarusian (be)", "Bengali (bn)", "Bosnian (bs)",
+            "Bulgarian (bg)", "Catalan (ca)", "Chinese Simplified (zh-CN)", "Chinese Traditional (zh-TW)",
+            "Croatian (hr)", "Czech (cs)", "Danish (da)", "Dutch (nl)", "English (en)", "Estonian (et)",
+            "Filipino (tl)", "Finnish (fi)", "French (fr)", "Galician (gl)", "Georgian (ka)",
+            "German (de)", "Greek (el)", "Gujarati (gu)", "Hebrew (he)", "Hindi (hi)", "Hungarian (hu)",
+            "Icelandic (is)", "Indonesian (id)", "Irish (ga)", "Italian (it)", "Japanese (ja)",
+            "Kannada (kn)", "Kazakh (kk)", "Korean (ko)", "Latvian (lv)", "Lithuanian (lt)",
+            "Macedonian (mk)", "Malay (ms)", "Malayalam (ml)", "Marathi (mr)", "Mongolian (mn)",
+            "Norwegian (no)", "Persian (fa)", "Polish (pl)", "Portuguese (pt-BR)", "Portuguese Portugal (pt-PT)",
+            "Punjabi (pa)", "Romanian (ro)", "Russian (ru)", "Serbian (sr)", "Slovak (sk)", "Slovenian (sl)",
+            "Spanish (es)", "Swahili (sw)", "Swedish (sv)", "Tamil (ta)", "Telugu (te)", "Thai (th)",
+            "Turkish (tr)", "Ukrainian (uk)", "Urdu (ur)", "Vietnamese (vi)", "Welsh (cy)"
         };
         private bool isDarkTheme = false;
         private string currentThemeName = "Translator Purple";
@@ -1379,8 +1398,13 @@ namespace UnityTextTranslator
         {
             try
             {
-                var n = CultureInfo.CurrentUICulture?.TwoLetterISOLanguageName;
-                return string.Equals(n, "ru", StringComparison.OrdinalIgnoreCase) ? "ru" : "en";
+                var n = CultureInfo.CurrentUICulture?.TwoLetterISOLanguageName?.ToLowerInvariant() ?? "en";
+                if (n == "ru")
+                    return "ru";
+                // ОС на одном из доп. языков интерфейса → стартуем на нём (перевод подтянется из ui-languages.json).
+                if (UiLocalization.IsExtraLanguage(n))
+                    return n;
+                return "en";
             }
             catch
             {
@@ -1388,11 +1412,80 @@ namespace UnityTextTranslator
             }
         }
 
+        /// <summary>Языки интерфейса для пикера: en/ru (зашиты в <see cref="L"/>) + доп. языки из ui-languages.json.</summary>
+        internal static IReadOnlyList<(string Code, string Display)> InterfaceLanguageChoices()
+        {
+            var list = new List<(string Code, string Display)>
+            {
+                ("en", "English"),
+                ("ru", "Русский"),
+            };
+            list.AddRange(UiLocalization.ExtraLanguages);
+            return list;
+        }
+
+        /// <summary>Приводит код языка интерфейса к поддерживаемому (en/ru/доп.); неизвестный → en (фолбэк-English).</summary>
+        private static string NormalizeUiLanguageCode(string raw)
+        {
+            if (string.IsNullOrWhiteSpace(raw))
+                return "en";
+            var c = raw.Trim().ToLowerInvariant();
+            if (c.StartsWith("ru"))
+                return "ru";
+            if (UiLocalization.IsExtraLanguage(c))
+                return c;
+            if (c.Length >= 2 && UiLocalization.IsExtraLanguage(c.Substring(0, 2))) // «pt-br» → «pt»
+                return c.Substring(0, 2);
+            return "en";
+        }
+
+        /// <summary>
+        /// Держит редактируемый combo языков (с поиском по вводу) в валидном состоянии: после ухода фокуса
+        /// фиксирует выбор на ТОЧНО совпадающем пункте (через что обновится <paramref name="stored"/> и настройки),
+        /// а недопустимый/недопечатанный ввод откатывает к сохранённому значению.
+        /// </summary>
+        private static void SnapLanguageComboToValidItem(ComboBox combo, ref string stored)
+        {
+            if (combo == null || combo.IsDisposed)
+                return;
+            int i = combo.FindStringExact(combo.Text);
+            if (i >= 0)
+            {
+                if (combo.SelectedIndex != i)
+                    combo.SelectedIndex = i; // вызовет SelectedIndexChanged → обновит stored + SaveSettings
+                else
+                {
+                    var s = combo.SelectedItem?.ToString();
+                    if (!string.IsNullOrEmpty(s))
+                        stored = s;
+                }
+            }
+            else
+            {
+                combo.Text = stored ?? ""; // вернуть последнее валидное значение
+            }
+            // Снять синюю подсветку текста (редактируемый combo сам выделяет текст) в покое.
+            combo.SelectionStart = 0;
+            combo.SelectionLength = 0;
+        }
+
         private bool UiIsRussian =>
             string.Equals(appUiLanguage, "ru", StringComparison.OrdinalIgnoreCase);
 
-        private string L(string english, string russian) =>
-            UiIsRussian ? russian : english;
+        /// <summary>
+        /// Подпись интерфейса по текущему языку. en/ru — мгновенно из аргументов (горячий путь не изменился);
+        /// доп. языки — из ui-languages.json по английскому ключу с откатом на English, если перевода нет.
+        /// Поэтому новые <c>L(...)</c> НЕ требуют правок файла переводов — непереведённое просто на английском.
+        /// </summary>
+        private string L(string english, string russian)
+        {
+            if (UiIsRussian)
+                return russian;
+            var code = appUiLanguage;
+            if (string.IsNullOrEmpty(code) || string.Equals(code, "en", StringComparison.OrdinalIgnoreCase))
+                return english;
+            return UiLocalization.Translate(code, english) ?? english;
+        }
 
         /// <summary>Подписи главного меню (верхняя панель): ключ из <see cref="ToolStripItem.Tag"/>.</summary>
         private string MainMenuText(string key)
@@ -1662,9 +1755,18 @@ namespace UnityTextTranslator
                 Width = 260,
                 Location = new Point(appearanceComboLeft, 108)
             };
-            uiLangCombo.Items.Add("English");
-            uiLangCombo.Items.Add("Русский");
-            uiLangCombo.SelectedIndex = UiIsRussian ? 1 : 0;
+            var uiChoices = InterfaceLanguageChoices();
+            foreach (var choice in uiChoices)
+                uiLangCombo.Items.Add(choice.Display);
+            // Выбор по КОДУ языка (порядок пунктов = порядок InterfaceLanguageChoices()).
+            int uiSel = 0;
+            for (int i = 0; i < uiChoices.Count; i++)
+                if (string.Equals(uiChoices[i].Code, appUiLanguage, StringComparison.OrdinalIgnoreCase))
+                {
+                    uiSel = i;
+                    break;
+                }
+            uiLangCombo.SelectedIndex = uiSel;
 
             var lblJsonCopyMode = new Label
             {
@@ -1766,13 +1868,19 @@ namespace UnityTextTranslator
             };
             var cbSrc = new NoWheelComboBox
             {
-                DropDownStyle = ComboBoxStyle.DropDownList,
+                // Редактируемый + автодополнение по списку = поиск по вводу (с 68 языками без него неудобно).
+                DropDownStyle = ComboBoxStyle.DropDown,
+                AutoCompleteMode = AutoCompleteMode.SuggestAppend,
+                AutoCompleteSource = AutoCompleteSource.ListItems,
                 Width = 420,
                 Location = new Point(4, 64),
                 Font = new Font("Segoe UI", 10f)
             };
+            cbSrc.Items.Add(AutoDetectSourceOption);
             cbSrc.Items.AddRange(UiLanguageOptions);
-            cbSrc.SelectedIndex = Math.Max(0, Array.IndexOf(UiLanguageOptions, sourceLanguageDisplay));
+            // Выбор по строке: «авто» прибавлено первым пунктом, поэтому индексы массива сдвинуты.
+            int srcIdx = cbSrc.Items.IndexOf(sourceLanguageDisplay);
+            cbSrc.SelectedIndex = srcIdx >= 0 ? srcIdx : Math.Max(0, cbSrc.Items.IndexOf("English (en)"));
 
             var lblTgt = new Label
             {
@@ -1784,14 +1892,32 @@ namespace UnityTextTranslator
             };
             var cbTgt = new NoWheelComboBox
             {
-                DropDownStyle = ComboBoxStyle.DropDownList,
+                // Редактируемый + автодополнение по списку = поиск по вводу.
+                DropDownStyle = ComboBoxStyle.DropDown,
+                AutoCompleteMode = AutoCompleteMode.SuggestAppend,
+                AutoCompleteSource = AutoCompleteSource.ListItems,
                 Width = 420,
                 Location = new Point(4, 124),
                 Font = new Font("Segoe UI", 10f)
             };
             cbTgt.Items.AddRange(UiLanguageOptions);
             var ti = Array.IndexOf(UiLanguageOptions, targetLanguageDisplay);
-            cbTgt.SelectedIndex = ti >= 0 ? ti : Math.Min(1, UiLanguageOptions.Length - 1);
+            if (ti < 0)
+                ti = Array.IndexOf(UiLanguageOptions, "Russian (ru)"); // дефолт цели — русский (раньше был жёсткий индекс 1)
+            cbTgt.SelectedIndex = Math.Max(0, ti);
+
+            // Редактируемый combo (нужен для поиска) сам выделяет свой текст → синяя подсветка в покое.
+            // Снимаем выделение после построения (отложенно, когда хэндлы готовы). На фокусе/наборе — штатно.
+            BeginInvoke((Action)(() =>
+            {
+                foreach (var cb in new[] { cbSrc, cbTgt })
+                {
+                    if (cb == null || cb.IsDisposed)
+                        continue;
+                    cb.SelectionStart = 0;
+                    cb.SelectionLength = 0;
+                }
+            }));
 
             var lg = new SettingsCardStacker(langsCard, cardPad, labelCol);
             lg.Title(langsTitle);
@@ -2361,6 +2487,11 @@ namespace UnityTextTranslator
                 SaveSettings();
             };
 
+            // Поиск делает списки редактируемыми: после ухода фокуса фиксируем выбор на точном пункте,
+            // недопустимый ввод откатываем — чтобы в настройки не попала «полупечатанная» строка.
+            cbSrc.Leave += (_, __) => SnapLanguageComboToValidItem(cbSrc, ref sourceLanguageDisplay);
+            cbTgt.Leave += (_, __) => SnapLanguageComboToValidItem(cbTgt, ref targetLanguageDisplay);
+
             cbTxtFmt.SelectedIndexChanged += (_, __) =>
             {
                 jsonTxtFormatSelectedIndex = NormalizeTxtFormatIndex(cbTxtFmt.SelectedIndex);
@@ -2443,7 +2574,9 @@ namespace UnityTextTranslator
 
             uiLangCombo.SelectedIndexChanged += (_, __) =>
             {
-                string next = uiLangCombo.SelectedIndex == 1 ? "ru" : "en";
+                var choices = InterfaceLanguageChoices();
+                int idx = uiLangCombo.SelectedIndex;
+                string next = (idx >= 0 && idx < choices.Count) ? choices[idx].Code : "en";
                 if (string.Equals(next, appUiLanguage, StringComparison.OrdinalIgnoreCase))
                     return;
                 appUiLanguage = next;
@@ -4182,28 +4315,56 @@ namespace UnityTextTranslator
 
                 int total = files.Length;
                 scannedJsonTotal[0] = total;
+
+                // Чтение+парсинг файлов независимы, а JToken.Parse — CPU-нагрузка: гоним параллельно по ядрам.
+                // Каждый файл пишет в СВОЙ список (translationItems/ExtractStrings не потокобезопасны), затем
+                // сливаем по индексу файла → порядок строк идентичен прежнему последовательному проходу.
+                var perFile = new List<TranslationItem>[total];
                 int processed = 0;
+                int lastPostedPercent = -1;
 
-                foreach (var file in files)
-                {
-                    try
+                Parallel.For(
+                    0,
+                    total,
+                    new ParallelOptions { MaxDegreeOfParallelism = Math.Max(1, Environment.ProcessorCount) },
+                    i =>
                     {
-                        var json = File.ReadAllText(file);
-                        var root = JToken.Parse(json);
-                        ExtractStrings(root, new List<string>(), Path.GetFileName(file), translationItems);
-                    }
-                    catch (Exception ex)
-                    {
-                        Log(L($"Error {Path.GetFileName(file)}: {ex.Message}", $"Ошибка {Path.GetFileName(file)}: {ex.Message}"), true);
-                    }
+                        var file = files[i];
+                        var local = new List<TranslationItem>();
+                        try
+                        {
+                            var json = File.ReadAllText(file);
+                            var root = JToken.Parse(json);
+                            ExtractStrings(root, new List<string>(), Path.GetFileName(file), local);
+                        }
+                        catch (Exception ex)
+                        {
+                            Log(L($"Error {Path.GetFileName(file)}: {ex.Message}", $"Ошибка {Path.GetFileName(file)}: {ex.Message}"), true);
+                        }
+                        perFile[i] = local;
 
-                    processed++;
-                    SafeMarshalAction(() =>
-                    {
-                        if (capturedProgress != null && !capturedProgress.IsDisposed && total > 0)
-                            capturedProgress.Value = Math.Max(0, Math.Min(100, (int)((double)processed / total * 100)));
+                        // Прогресс маршалим в UI-поток ТОЛЬКО при смене целого процента (≤100 раз на весь
+                        // проход) — прежний BeginInvoke на каждый файл заваливал UI-поток тысячами сообщений.
+                        int done = Interlocked.Increment(ref processed);
+                        if (total > 0)
+                        {
+                            int pct = Math.Max(0, Math.Min(100, (int)((double)done / total * 100)));
+                            if (Interlocked.Exchange(ref lastPostedPercent, pct) != pct)
+                            {
+                                SafeMarshalAction(() =>
+                                {
+                                    if (capturedProgress != null && !capturedProgress.IsDisposed)
+                                        capturedProgress.Value = pct;
+                                });
+                            }
+                        }
                     });
-                }
+
+                // Слияние в порядке файлов = тот же порядок, что давал последовательный проход.
+                translationItems.Capacity = Math.Max(translationItems.Capacity, perFile.Sum(p => p?.Count ?? 0));
+                foreach (var local in perFile)
+                    if (local != null && local.Count > 0)
+                        translationItems.AddRange(local);
             }).ConfigureAwait(true);
 
             lastDashboardJsonScanFolder = currentFolder ?? "";
@@ -6163,10 +6324,7 @@ namespace UnityTextTranslator
                 lastManualBackupUtc = settings.LastManualBackupUtc;
 
                 if (!string.IsNullOrWhiteSpace(settings.UiLanguage))
-                {
-                    var ul = settings.UiLanguage.Trim().ToLowerInvariant();
-                    appUiLanguage = ul.StartsWith("ru") ? "ru" : "en";
-                }
+                    appUiLanguage = NormalizeUiLanguageCode(settings.UiLanguage);
                 else
                     appUiLanguage = ResolveOsUiLanguage();
 

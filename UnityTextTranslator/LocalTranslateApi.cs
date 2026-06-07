@@ -60,19 +60,46 @@ namespace UnityTextTranslator
             return s.IndexOf('<') >= 0 || s.IndexOf('[') >= 0 || s.IndexOf('{') >= 0;
         }
 
-        /// <summary>Ограничивает «раздутые» ответы модели и снижает стоимость по output-токенам.</summary>
+        /// <summary>
+        /// Эвристика «модель ведёт скрытый reasoning» (deepseek-reasoner, qwen *-thinking, o1/o3/o4, qwq, magistral…):
+        /// такой модели нужен заметно больший бюджет вывода, иначе скрытый &lt;think&gt; съедает лимит и финальный
+        /// ответ обрезается в пустоту («пустой ответ модели»).
+        /// </summary>
+        internal static bool ModelLikelyUsesHiddenReasoning(string modelId)
+        {
+            if (string.IsNullOrEmpty(modelId))
+                return false;
+            var m = modelId.ToLowerInvariant();
+            return m.Contains("reason")            // deepseek-reasoner, command-a-reasoning, *-reasoning
+                || m.Contains("think")             // *-thinking, qwen3 thinking-снапшоты
+                || m.Contains("qwq")
+                || m.Contains("deepseek-r1") || m.Contains("/r1") || m.EndsWith("-r1")
+                || m.Contains("deepseek-v4-pro")   // pro-режим v4 = thinking
+                || m.Contains("magistral")         // Mistral reasoning
+                || m.StartsWith("o1") || m.StartsWith("o3") || m.StartsWith("o4")
+                || m.Contains("/o1") || m.Contains("/o3") || m.Contains("/o4")
+                || m.Contains("-o1-") || m.Contains("-o3-") || m.Contains("-o4-")
+                || m.EndsWith("-o1") || m.EndsWith("-o3") || m.EndsWith("-o4");
+        }
+
+        /// <summary>Потолок output-токенов: тесный для обычных моделей (экономия + бережёт TPM-квоту), просторный — для «думающих».</summary>
         /// <remarks>
-        /// «Думающие» модели (qwen3 / distilled-reasoning, локальные через LM Studio и т.п.) тратят часть бюджета
-        /// на скрытый блок &lt;think&gt;…&lt;/think&gt;. При низком лимите финальный ответ обрезается в пустоту
-        /// («пустой ответ модели»). Поэтому держим заметно больший пол и потолок, чем нужно «просто переводу».
+        /// Обычной модели перевод редко длиннее ~2× оригинала, поэтому держим компактный потолок (≤2048) —
+        /// он не режет легитимный ответ, но не даёт «разболтавшейся» модели сгенерировать (и оплатить) лишнее,
+        /// а у многих провайдеров max_tokens резервируется против лимита запросов (TPM). «Думающие» модели
+        /// (см. <see cref="ModelLikelyUsesHiddenReasoning"/>) тратят часть бюджета на скрытый &lt;think&gt; —
+        /// им оставляем прежний большой пол/потолок (512…8192), иначе ответ обрезается в пустоту.
         /// </remarks>
-        internal static int ComputeChatMaxOutputTokens(string userText)
+        internal static int ComputeChatMaxOutputTokens(string userText, string modelId = null)
         {
             int n = userText?.Length ?? 0;
-            if (n <= 0)
-                return 512;
-            var est = (n * 3 + 1) / 2 + 256;
-            return Math.Min(8192, Math.Max(512, est));
+            // ~ n + n/2 + запас: грубая оценка длины перевода в токенах с поправкой на кириллицу/расширение.
+            int est = n + n / 2 + 64;
+
+            if (ModelLikelyUsesHiddenReasoning(modelId))
+                return Math.Min(8192, Math.Max(512, est + 256));
+
+            return Math.Min(2048, Math.Max(128, est));
         }
 
         private static readonly Regex ThinkBlockRegex =
@@ -96,12 +123,15 @@ namespace UnityTextTranslator
         private static string BuildChatSystemPrompt(string sourceCode, string targetCode, string userTextSample)
         {
             var srcHint = string.IsNullOrWhiteSpace(sourceCode) || sourceCode.Equals("auto", StringComparison.OrdinalIgnoreCase)
-                ? "Detect source language."
-                : $"Source: {sourceCode}.";
+                ? "Detect source"
+                : "From " + sourceCode.Trim();
             var tgt = string.IsNullOrWhiteSpace(targetCode) ? "en" : targetCode.Trim();
             var markup = TextLikelyHasGameMarkup(userTextSample) ? ChatMarkupHintWhenNeeded : "";
-            return "Game/UI translator. " + srcHint + " Target ISO: " + tgt + ". " + markup +
-                   "Output only the translation (no quotes, no markdown fences, no notes).";
+            // Компактная формулировка: промпт уходит на КАЖДОМ запросе, поэтому короче = меньше входных
+            // токенов за пакет. Сохранены все ограничения (роль, исходный/целевой язык, разметка условно,
+            // «только перевод, без кавычек/ограждений/заметок»). "→" = «→» (1 токен вместо «Target ISO:»).
+            return "Game UI translator. " + srcHint + " → " + tgt + ". " + markup +
+                   "Reply with only the translation (no quotes/fences/notes).";
         }
 
         static HttpClient CreateHttpClient()
@@ -285,15 +315,15 @@ namespace UnityTextTranslator
         /// <summary>Запасной список при недоступности API.</summary>
         public static readonly string[] OpenRouterModelPresets =
         {
+            // Пресеты-подсказки; полный список дотягивается live через GET …/models.
+            "openai/gpt-5.4-mini",
+            "openai/gpt-5.4-nano",
             "openai/gpt-4o-mini",
-            "openai/gpt-4o",
-            "openai/o4-mini",
-            "anthropic/claude-3.5-haiku",
-            "anthropic/claude-3.5-sonnet",
-            "anthropic/claude-3.7-sonnet",
-            "google/gemini-2.5-flash-preview-05-20",
-            "google/gemini-2.0-flash-001",
-            "google/gemini-flash-1.5",
+            "anthropic/claude-haiku-4.5",
+            "anthropic/claude-sonnet-4.5",
+            "google/gemini-2.5-flash-lite",
+            "google/gemini-2.5-flash",
+            "google/gemini-3.5-flash",
             "meta-llama/llama-3.3-70b-instruct",
             "mistralai/mistral-small-3.1-24b-instruct",
             "deepseek/deepseek-chat",
@@ -302,14 +332,16 @@ namespace UnityTextTranslator
 
         public static readonly string[] OpenAiCompatibleModelPresets =
         {
+            "gpt-5.4-mini",
+            "gpt-5.4-nano",
+            "gpt-5.4",
+            "gpt-5.5",
+            "gpt-4.1-mini",
+            "gpt-4.1-nano",
+            "gpt-4.1",
             "gpt-4o-mini",
             "gpt-4o",
-            "gpt-4.1-mini",
-            "gpt-4.1",
-            "gpt-4-turbo",
-            "gpt-3.5-turbo",
-            "o3-mini",
-            "o1-mini",
+            "o4-mini",
         };
 
         public static readonly string[] OllamaModelPresets =
@@ -324,11 +356,11 @@ namespace UnityTextTranslator
         /// <summary>Запасные id для Groq (OpenAI-совместимый каталог).</summary>
         public static readonly string[] GroqModelPresets =
         {
+            // llama-3.1-70b-versatile / mixtral-8x7b сняты Groq — оставлены только живые production-модели.
             "llama-3.3-70b-versatile",
             "llama-3.1-8b-instant",
-            "llama-3.1-70b-versatile",
-            "mixtral-8x7b-32768",
-            "gemma2-9b-it",
+            "openai/gpt-oss-120b",
+            "openai/gpt-oss-20b",
         };
 
         public static readonly string[] TogetherAiModelPresets =
@@ -349,8 +381,10 @@ namespace UnityTextTranslator
 
         public static readonly string[] DeepSeekModelPresets =
         {
-            "deepseek-chat",
-            "deepseek-reasoner",
+            "deepseek-v4-flash",
+            "deepseek-v4-pro",
+            "deepseek-chat",     // алиас → v4-flash (non-thinking); снимается 2026-07-24
+            "deepseek-reasoner", // алиас → v4-flash (thinking); снимается 2026-07-24
         };
 
         /// <summary>Qwen / Model Studio — OpenAI-compatible; международная консоль чаще всего использует Singapore (intl).</summary>
@@ -384,18 +418,18 @@ namespace UnityTextTranslator
 
         public static readonly string[] CohereModelPresets =
         {
-            "command-r-plus",
-            "command-r",
-            "command-r7b",
+            "command-a-03-2025",
+            "command-a-plus-05-2026",
             "command-a-reasoning-08-2025",
         };
 
         public static readonly string[] KimiMoonshotModelPresets =
         {
+            "kimi-latest",
+            "kimi-k2.6",
             "moonshot-v1-8k",
             "moonshot-v1-32k",
             "moonshot-v1-128k",
-            "kimi-latest",
         };
 
         public static readonly string[] NvidiaIntegrateModelPresets =
@@ -433,16 +467,13 @@ namespace UnityTextTranslator
         /// <summary>Имена моделей Gemini для слоя OpenAI (Google AI) — дополняют ответ GET …/openai/models.</summary>
         public static readonly string[] GeminiOpenAiModelPresets =
         {
+            // 2.0/1.5 серии отключены (2.0 — 2026-06-01); ниже только живые на 2026.
+            "gemini-2.5-flash-lite",
             "gemini-2.5-flash",
             "gemini-2.5-pro",
-            "gemini-2.0-flash",
-            "gemini-2.0-flash-lite",
-            "gemini-2.0-flash-001",
-            "gemini-1.5-flash-latest",
-            "gemini-1.5-flash",
-            "gemini-1.5-flash-8b",
-            "gemini-1.5-pro-latest",
-            "gemini-1.5-pro",
+            "gemini-3.1-flash-lite",
+            "gemini-3.5-flash",
+            "gemini-3.1-pro-preview",
         };
 
         /// <summary>OpenAI-compatible Singapore / международная консоль (в URL есть «-intl»).</summary>
@@ -604,10 +635,11 @@ namespace UnityTextTranslator
             switch (backend)
             {
                 case TranslationAiBackend.OpenRouter:
-                    return "openai/gpt-4o-mini";
+                    return "openai/gpt-5.4-mini";
                 case TranslationAiBackend.OpenAI:
+                    return "gpt-5.4-mini";
                 case TranslationAiBackend.CustomOpenAiCompatible:
-                    return "gpt-4o-mini";
+                    return "gpt-4o-mini"; // нейтральный плейсхолдер для локальных серверов (пользователь задаёт свою модель)
                 case TranslationAiBackend.Groq:
                     return "llama-3.3-70b-versatile";
                 case TranslationAiBackend.TogetherAI:
@@ -615,17 +647,17 @@ namespace UnityTextTranslator
                 case TranslationAiBackend.Mistral:
                     return "mistral-small-latest";
                 case TranslationAiBackend.DeepSeek:
-                    return "deepseek-chat";
+                    return "deepseek-v4-flash"; // deepseek-chat/reasoner выводятся из обращения 2026-07-24
                 case TranslationAiBackend.GeminiOpenAi:
-                    return "gemini-2.0-flash";
+                    return "gemini-2.5-flash-lite"; // gemini-2.0-flash/-lite отключены 2026-06-01
                 case TranslationAiBackend.Qwen:
                     return "qwen-turbo-latest";
                 case TranslationAiBackend.Ollama:
                     return "llama3.2";
                 case TranslationAiBackend.Cohere:
-                    return "command-r-plus";
+                    return "command-a-03-2025"; // command-r/-r-plus сняты; command-a — актуальная эффективная модель
                 case TranslationAiBackend.Kimi:
-                    return "moonshot-v1-8k";
+                    return "kimi-latest"; // moonshot-v1/kimi-k2 сняты 2026-05-25; latest = текущая (k2.6)
                 case TranslationAiBackend.Nvidia:
                     return "meta/llama-3.1-8b-instruct";
                 case TranslationAiBackend.Cursor:
@@ -1030,7 +1062,7 @@ namespace UnityTextTranslator
             {
                 ["model"] = modelId,
                 ["temperature"] = 0.2,
-                ["max_tokens"] = ComputeChatMaxOutputTokens(text),
+                ["max_tokens"] = ComputeChatMaxOutputTokens(text, modelId),
                 ["messages"] = new JArray
                 {
                     new JObject { ["role"] = "system", ["content"] = systemPrompt },

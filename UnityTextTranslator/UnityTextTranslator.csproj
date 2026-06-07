@@ -144,9 +144,14 @@
     <Compile Include="MonoBehaviourScriptResolver.cs" />
     <Compile Include="TranslationTxtExchange.cs" />
     <Compile Include="LocalTranslateApi.cs" />
+    <Compile Include="UiLocalization.cs" />
     <Compile Include="NoWheelComboBox.cs">
       <SubType>Component</SubType>
     </Compile>
+    <!-- Переводы интерфейса для доп. языков (en/ru зашиты в L). Явный LogicalName — чтобы UiLocalization нашёл ресурс. -->
+    <EmbeddedResource Include="ui-languages.json">
+      <LogicalName>UnityTextTranslator.ui-languages.json</LogicalName>
+    </EmbeddedResource>
     <!-- Явное встраивание: Costura кладёт DLL под своими именами; Program ищет ресурс «Mono.Cecil.Rocks.dll». -->
     <EmbeddedResource Include="..\packages\Mono.Cecil.0.10.4\lib\net40\Mono.Cecil.Rocks.dll">
       <LogicalName>Mono.Cecil.Rocks.dll</LogicalName>

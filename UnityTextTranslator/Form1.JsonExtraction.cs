@@ -247,10 +247,14 @@ namespace UnityTextTranslator
             }
             else if (token.Type == JTokenType.Array)
             {
-                for (int i = 0; i < token.Children().Count(); i++)
+                // token.Count — O(1); прежний token.Children().Count() в условии цикла пересчитывал
+                // весь массив на КАЖДОЙ итерации → O(N²) на большом массиве (таблицы локализации).
+                var arr = (JArray)token;
+                int n = arr.Count;
+                for (int i = 0; i < n; i++)
                 {
                     var newPath = new List<string>(currentPath) { $"[{i}]" };
-                    ExtractStrings(token[i], newPath, fileName, list);
+                    ExtractStrings(arr[i], newPath, fileName, list);
                 }
             }
         }
