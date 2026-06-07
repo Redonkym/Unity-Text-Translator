@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <IsPackable>false</IsPackable>
+    <AssemblyName>UnityTextTranslator.Tests</AssemblyName>
+    <RootNamespace>UnityTextTranslator.Tests</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+  </ItemGroup>
+
+  <!--
+    Тестируем РЕАЛЬНЫЙ исходный код этих файлов, скомпилированный прямо в тест-сборку (Link), а НЕ через
+    ProjectReference на основной проект. Так тесты не тянут Fody/Costura, AssetsTools.NET и WinForms-UI и
+    спокойно гоняются на net8.0 (и в CI, без Visual Studio). Логика тут платформонезависимая (CRC-математика,
+    строковые эвристики), поэтому результат идентичен net48-сборке приложения.
+  -->
+  <ItemGroup>
+    <Compile Include="..\UnityTextTranslator\Crc32Utility.cs" Link="LinkedFromMain\Crc32Utility.cs" />
+    <Compile Include="..\UnityTextTranslator\TranslationMemory.cs" Link="LinkedFromMain\TranslationMemory.cs" />
+  </ItemGroup>
+
+</Project>

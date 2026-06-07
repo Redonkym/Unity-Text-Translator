@@ -52,7 +52,9 @@ namespace UnityTextTranslator
             // чтобы копировалась ровно та пара «Оригинал→Перевод», что видна в строке (без сдвига при пересортировке).
             CopyItemsForAi(
                 indices.Select(RowItemAt).Where(it => it != null),
-                dgv.SelectedRows.Count > 0 ? "выбранные строки" : "видимые строки");
+                dgv.SelectedRows.Count > 0
+                    ? L("selected rows", "выбранные строки")
+                    : L("visible rows", "видимые строки"));
         }
 
         private void CopyItemsForAi(IEnumerable<TranslationItem> items, string sourceName)
@@ -75,40 +77,11 @@ namespace UnityTextTranslator
                 return;
             }
 
-            var lines = new List<string>
-            {
-                "=== Инструкция для языковой модели (Unity Text Translator) ===",
-                "Ниже таблица строк из дампов Unity JSON (MonoBehaviour и др.), которые нужно перевести для локализации игры.",
-                "",
-                "Формат данных: TSV (колонки разделены символом TAB). Первая строка после этого блока — заголовок таблицы.",
-                "Колонки:",
-                "  1) Файл — только имя JSON-файла; не менять и не переводить.",
-                "  2) Путь в JSON — цепочка ключей к полю в JSON (например m_Text › text); не менять.",
-                "  3) Оригинал — исходная строка на языке источника.",
-                "  4) Перевод — ЗАПОЛНИ перевод на целевой язык (пользователь ожидает качественный игровой текст). Колонка сейчас пустая после табуляции.",
-                "",
-                "Требования:",
-                "— Сохраняй порядок строк и точное содержимое колонок 1–3.",
-                "— Не добавляй и не удаляй строки данных.",
-                "— Сохраняй плейсхолдеры ({0}, %d), HTML/XML-подобные теги Unity/TextMeshPro, переносы строк и экранирование как в оригинале.",
-                "— Фрагменты вида <?shake> … ?> и любые <? … ?> — это буквальный игровой код/разметка (не HTML-документ для «исправления»): не склеивай несколько физических строк таблицы в одну из‑за угловых скобок, не переписывай разметку как обычный текст; внутри одной ячейки сохраняй переносы и пробелы как в «Оригинале».",
-                "— Переводи смысл и стиль; допускается естественная адаптация на целевом языке без искажения контента.",
-                "",
-                "Чего не переводить (в колонке «Перевод» поставь ТОЧНУЮ копию «Оригинала» как есть):",
-                "— Строки, где «Путь в JSON» заканчивается на m_Name или ведёт к чисто служебному имени объекта/ассета: если «Оригинал» выглядит как код или имя ресурса (слитное PascalCase/CamelCase без пробелов, например ConcentratedMutantProtein; внутренние кодовые имена предметов/баффов; совсем без пробелов и без знаков видимого человеческого предложения) — это не пользовательский текст.",
-                "— Технические ветки и содержимое: … › input › port или … › input › node под RefIds; поля вида <Guid>k__BackingField; propertyName в графах; bodyPartTag, bodyPartLayer, currentTag, objectTag; строки GUID/UUID, квалифицированные имена типов Unity/System, чистые числа/URL, типичная сериализация Unity и машинные пути Assets/Packages.",
-                "— То, что похоже на ключ словаря, ID локализации, хеш или enum-длинную строку без местоимений — не локализуй.",
-                "Если по пути видно игровой UI или повествование (например m_Text, text, description, title для понятной игроку фразы) — переводи нормально.",
-                "",
-                "[English for model:] Treat <?…?> tokens (e.g. <?shake>) as literal in-game markup/code, NOT parsable HTML/XML—never merge multiple TSV data rows into one line because of angle brackets, and never “pretty-print” or reflow that markup into prose. Preserve line breaks and spacing inside a cell exactly as in Original. Do NOT translate rows that are Unity/developer identifiers — echo Original unchanged into Перевод when Path suggests internals (e.g. ending with m_Name with PascalCase asset/code names like ConcentratedMutantProtein), Visual Scripting graph wiring under RefIds with …/input/port or …/input/node, GUID backing fields, propertyName, bodyPart*, objectTag, GUIDs/serialized Unity noise or Assets paths. Translate real player-facing UI/dialog/description strings.",
-                "",
-                "Формат ответа: верни одну таблицу TSV с тем же заголовком и четырьмя колонками; в колонке «Перевод» должны быть готовые строки.",
-                "Если во фразе есть перенос строки (#13/#10 или Enter), каждая такая строка данных всё равно должна занимать ровно ОДНУ физическую строку всего блока ответа: запиши переносы как два символа обратная косая + n (‹\\› + ‹n›), как в уже выданном вам примере, а не как настоящий перевод каретки между строками TSV.",
-                "[English:] If Original or Перевод must contain hard line-breaks inside the cell, keep each TSV ROW as ONE physical screen line — encode internal breaks as a two-character ‹\\› + ‹n› (ASCII backslash+n), never as a real newline that would split one record across multiple pasted lines.",
-                "=== Конец инструкции ===",
-                "",
-                "Файл\tПуть в JSON\tОригинал\tПеревод"
-            };
+            // Инструкция монолингвальна (на языке интерфейса) и называет выбранные языки перевода —
+            // см. BuildAiCopyInstructionLines. Дубль RU+EN убран по запросу пользователя.
+            var srcName = LanguageDisplayToName(sourceLanguageDisplay);
+            var tgtName = LanguageDisplayToName(targetLanguageDisplay);
+            var lines = BuildAiCopyInstructionLines(srcName, tgtName);
 
             for (int i = 0; i < list.Count; i++)
             {
@@ -122,6 +95,111 @@ namespace UnityTextTranslator
                 Log(L($"Copied {sourceName}: {list.Count}. Skipped by rules: {skippedByMode}.", $"Скопированы {sourceName}: {list.Count}. Пропущено по правилам: {skippedByMode}."));
             else
                 Log(L($"Copied {sourceName}: {list.Count}.", $"Скопированы {sourceName}: {list.Count}."));
+        }
+
+        /// <summary>«English (en)» → «English»; «Chinese Simplified (zh-CN)» → «Chinese Simplified» (отбрасывает хвост « (код)»).</summary>
+        private static string LanguageDisplayToName(string display)
+        {
+            var s = (display ?? "").Trim();
+            if (s.Length == 0)
+                return s;
+            var idx = s.LastIndexOf(" (", StringComparison.Ordinal);
+            return idx > 0 ? s.Substring(0, idx).Trim() : s;
+        }
+
+        /// <summary>
+        /// Инструкция для языковой модели в буфере обмена. МОНОЛИНГВАЛЬНА — целиком на языке интерфейса
+        /// (<see cref="UiIsRussian"/>), без прежнего дубля RU+EN; явно называет выбранные языки перевода
+        /// «{src} → {tgt}». Последний элемент списка — строка-заголовок TSV (на том же языке).
+        /// Заголовок распознаётся при вставке на обоих языках (см. <see cref="IsAiCopyFileHeaderCell"/>).
+        /// </summary>
+        private List<string> BuildAiCopyInstructionLines(string srcName, string tgtName)
+        {
+            var src = string.IsNullOrWhiteSpace(srcName) ? L("(source)", "(источник)") : srcName.Trim();
+            var tgt = string.IsNullOrWhiteSpace(tgtName) ? L("(target)", "(цель)") : tgtName.Trim();
+
+            if (UiIsRussian)
+            {
+                return new List<string>
+                {
+                    "=== Инструкция для языковой модели (Unity Text Translator) ===",
+                    $"Ниже таблица строк из дампов Unity JSON (MonoBehaviour и др.), которые нужно перевести с языка «{src}» на язык «{tgt}» для локализации игры.",
+                    "",
+                    "Формат данных: TSV (колонки разделены символом TAB). Первая строка после этого блока — заголовок таблицы.",
+                    "Колонки:",
+                    "  1) Файл — только имя JSON-файла; не менять и не переводить.",
+                    "  2) Путь в JSON — цепочка ключей к полю в JSON (например m_Text › text); не менять.",
+                    $"  3) Оригинал — исходная строка на языке «{src}».",
+                    $"  4) Перевод — ЗАПОЛНИ перевод на язык «{tgt}» (пользователь ожидает качественный игровой текст). Колонка сейчас пустая после табуляции.",
+                    "",
+                    "Требования:",
+                    "— Сохраняй порядок строк и точное содержимое колонок 1–3.",
+                    "— Не добавляй и не удаляй строки данных.",
+                    "— Сохраняй плейсхолдеры ({0}, %d), HTML/XML-подобные теги Unity/TextMeshPro, переносы строк и экранирование как в оригинале.",
+                    "— Фрагменты вида <?shake> ... ?> и любые <? ... ?> — это буквальный игровой код/разметка (не HTML-документ для «исправления»): не склеивай несколько физических строк таблицы в одну из-за угловых скобок, не переписывай разметку как обычный текст; внутри одной ячейки сохраняй переносы и пробелы как в «Оригинале».",
+                    $"— Переводи смысл и стиль; допускается естественная адаптация на язык «{tgt}» без искажения контента.",
+                    "",
+                    "Чего не переводить (в колонке «Перевод» поставь ТОЧНУЮ копию «Оригинала» как есть):",
+                    "— Строки, где «Путь в JSON» заканчивается на m_Name или ведёт к чисто служебному имени объекта/ассета: если «Оригинал» выглядит как код или имя ресурса (слитное PascalCase/CamelCase без пробелов, например ConcentratedMutantProtein; внутренние кодовые имена предметов/баффов; совсем без пробелов и без знаков видимого человеческого предложения) — это не пользовательский текст.",
+                    "— Технические ветки и содержимое: ... › input › port или ... › input › node под RefIds; поля вида <Guid>k__BackingField; propertyName в графах; bodyPartTag, bodyPartLayer, currentTag, objectTag; строки GUID/UUID, квалифицированные имена типов Unity/System, чистые числа/URL, типичная сериализация Unity и машинные пути Assets/Packages.",
+                    "— То, что похоже на ключ словаря, ID локализации, хеш или enum-длинную строку без местоимений — не локализуй.",
+                    "Если по пути видно игровой UI или повествование (например m_Text, text, description, title для понятной игроку фразы) — переводи нормально.",
+                    "",
+                    "Формат ответа: верни одну таблицу TSV с тем же заголовком и четырьмя колонками; в колонке «Перевод» должны быть готовые строки.",
+                    "Если во фразе есть перенос строки (#13/#10 или Enter), каждая такая строка данных всё равно должна занимать ровно ОДНУ физическую строку всего блока ответа: запиши переносы как два символа обратная косая + n (\\ + n), а не как настоящий перевод каретки между строками TSV.",
+                    "=== Конец инструкции ===",
+                    "",
+                    "Файл\tПуть в JSON\tОригинал\tПеревод"
+                };
+            }
+
+            return new List<string>
+            {
+                "=== Instructions for the language model (Unity Text Translator) ===",
+                $"Below is a table of strings from Unity JSON dumps (MonoBehaviour, etc.) that must be translated from \"{src}\" into \"{tgt}\" to localize the game.",
+                "",
+                "Data format: TSV (columns separated by a TAB character). The first line after this block is the table header.",
+                "Columns:",
+                "  1) File — the JSON file name only; do not change or translate.",
+                "  2) Path in JSON — the chain of keys to the field (e.g. m_Text › text); do not change.",
+                $"  3) Original — the source string in \"{src}\".",
+                $"  4) Translation — FILL IN the translation into \"{tgt}\" (the user expects high-quality in-game text). This column is currently empty after the tab.",
+                "",
+                "Requirements:",
+                "— Keep the row order and the exact content of columns 1–3.",
+                "— Do not add or remove data rows.",
+                "— Preserve placeholders ({0}, %d), Unity/TextMeshPro HTML/XML-like tags, line breaks and escaping exactly as in the original.",
+                "— Tokens like <?shake> ... ?> and any <? ... ?> are literal in-game code/markup (NOT an HTML document to \"fix\"): never merge several physical table rows into one because of angle brackets, never rewrite the markup as prose; inside a single cell keep line breaks and spaces exactly as in \"Original\".",
+                $"— Translate meaning and style; natural adaptation into \"{tgt}\" is allowed without distorting the content.",
+                "",
+                "Do NOT translate (put an EXACT copy of \"Original\" into the \"Translation\" column):",
+                "— Rows whose \"Path in JSON\" ends with m_Name or point to a purely technical object/asset name: if \"Original\" looks like code or a resource name (solid PascalCase/CamelCase without spaces, e.g. ConcentratedMutantProtein; internal code names of items/buffs; no spaces and no sign of a readable human sentence) — it is not user-facing text.",
+                "— Technical branches and content: ... › input › port or ... › input › node under RefIds; fields like <Guid>k__BackingField; propertyName in graphs; bodyPartTag, bodyPartLayer, currentTag, objectTag; GUID/UUID strings, qualified Unity/System type names, plain numbers/URLs, typical Unity serialization and Assets/Packages machine paths.",
+                "— Anything that looks like a dictionary key, localization ID, hash, or a long enum-like string without pronouns — do not localize.",
+                "If the path clearly indicates game UI or narration (e.g. m_Text, text, description, title for a player-readable phrase) — translate normally.",
+                "",
+                "Response format: return one TSV table with the same header and four columns; the \"Translation\" column must contain the finished strings.",
+                "If a phrase contains a line break (#13/#10 or Enter), each such data row must still occupy exactly ONE physical line of the whole response: encode breaks as the two characters backslash + n (\\ + n), not as a real carriage return between TSV rows.",
+                "=== End of instructions ===",
+                "",
+                "File\tPath in JSON\tOriginal\tTranslation"
+            };
+        }
+
+        /// <summary>Первая колонка строки — заголовок таблицы копирования («Файл»/«File»), не данные.</summary>
+        private static bool IsAiCopyFileHeaderCell(string value)
+        {
+            var v = (value ?? "").Trim();
+            return v.Equals("Файл", StringComparison.OrdinalIgnoreCase) ||
+                   v.Equals("File", StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>Последняя колонка строки — заголовок столбца перевода («Перевод»/«Translation»), не данные.</summary>
+        private static bool IsAiCopyTranslatedHeaderCell(string value)
+        {
+            var v = (value ?? "").Trim();
+            return v.Equals("Перевод", StringComparison.OrdinalIgnoreCase) ||
+                   v.Equals("Translation", StringComparison.OrdinalIgnoreCase);
         }
 
         private bool ShouldIncludeByJsonCopyMode(TranslationItem item)
@@ -514,8 +592,8 @@ namespace UnityTextTranslator
                 var original = parts[2].Trim();
                 var translated = parts[3].Trim();
 
-                if (fileName.Equals("Файл", StringComparison.OrdinalIgnoreCase) ||
-                    translated.Equals("Перевод", StringComparison.OrdinalIgnoreCase) ||
+                if (IsAiCopyFileHeaderCell(fileName) ||
+                    IsAiCopyTranslatedHeaderCell(translated) ||
                     string.IsNullOrWhiteSpace(translated))
                     continue;
 
@@ -741,8 +819,8 @@ namespace UnityTextTranslator
                     var firstColumn = tabParts[0].Trim();
                     var lastColumn = tabParts[tabParts.Length - 1].Trim();
 
-                    if (firstColumn.Equals("Файл", StringComparison.OrdinalIgnoreCase) ||
-                        lastColumn.Equals("Перевод", StringComparison.OrdinalIgnoreCase))
+                    if (IsAiCopyFileHeaderCell(firstColumn) ||
+                        IsAiCopyTranslatedHeaderCell(lastColumn))
                         continue;
 
                     AddParsedTranslation(result, current);
@@ -829,8 +907,8 @@ namespace UnityTextTranslator
                 var original = parts[2].Trim();
                 var translated = parts[3].Trim();
 
-                if (fileName.Equals("Файл", StringComparison.OrdinalIgnoreCase) ||
-                    translated.Equals("Перевод", StringComparison.OrdinalIgnoreCase) ||
+                if (IsAiCopyFileHeaderCell(fileName) ||
+                    IsAiCopyTranslatedHeaderCell(translated) ||
                     string.IsNullOrWhiteSpace(translated))
                     continue;
 

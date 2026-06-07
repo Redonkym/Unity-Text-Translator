@@ -4349,6 +4349,26 @@ namespace UnityTextTranslator
         {
             try
             {
+                bool inPlace;
+                try
+                {
+                    inPlace = string.Equals(
+                        Path.GetFullPath(sourceAssetsPath ?? ""),
+                        Path.GetFullPath(builtOutputPath ?? ""),
+                        StringComparison.OrdinalIgnoreCase);
+                }
+                catch { inPlace = false; }
+
+                // Запись поверх оригинала: переименовывать ничего не нужно, .resS не трогается — без граблей.
+                if (inPlace)
+                {
+                    string name = Path.GetFileName(sourceAssetsPath);
+                    Log(L(
+                        "[INFO] Saved in place over «" + name + "» — nothing to rename, just launch the game. The original is backed up as «" + name + ".utt-orig». The companion «.resS/.resource» keeps its name, so textures/audio streaming stays intact.",
+                        "[INFO] Записано поверх «" + name + "» — переименовывать ничего не нужно, просто запускайте игру. Оригинал в бэкапе «" + name + ".utt-orig». Парный «.resS/.resource» сохраняет имя, поэтому стриминг текстур/звука не ломается."));
+                    return;
+                }
+
                 string orig = Path.GetFileName(sourceAssetsPath);
                 string built = Path.GetFileName(builtOutputPath);
                 string dataDir = Path.GetDirectoryName(Path.GetFullPath(sourceAssetsPath));
@@ -4413,35 +4433,27 @@ namespace UnityTextTranslator
                 !UnityAssetsGameFolderHelper.TryPickAssetsFile(this, resolved, out assetsPath))
                 return;
 
-            // Streaming-сцены (level0, level1 …) грузятся игрой по точному имени БЕЗ расширения.
-            // Если предложить «level1.translated.assets», игра не подхватит файл (грузит «level1»),
-            // поэтому для таких контейнеров по умолчанию сохраняем ровно под именем оригинала — без
-            // «.translated» и без принудительного «.assets».
+            // По умолчанию сохраняем ПОВЕРХ оригинала (in-place) — и для streaming-сцен (level0/level1…),
+            // и для resources.assets/sharedassets. Текстуры и прочее жёстко ссылаются на исходное имя потока
+            // (например resources.assets.resS), поэтому отдельный «resources.translated.assets» + переименованная
+            // копия .resS — это грабли: при подмене .resS теряет нужное имя и картинки рендерятся magenta.
+            // In-place не меняет имя контейнера и не требует переименований; оригинал бэкапится в «<имя>.utt-orig».
+            // При желании пользователь может в диалоге указать другое имя/папку (тогда вернётся ручная подмена).
             var isLevelContainer = UnityAssetsGameFolderHelper.LooksLikeStreamingSceneLevelContainer(assetsPath);
 
-            var outputPath = isLevelContainer
-                ? assetsPath
-                : Path.Combine(
-                    Path.GetDirectoryName(assetsPath),
-                    Path.GetFileNameWithoutExtension(assetsPath) + ".translated.assets");
+            var outputPath = assetsPath;
 
             using (var sfd = new SaveFileDialog())
             {
-                sfd.Title = L("Save modified .assets as…", "Куда сохранить изменённый .assets");
+                sfd.Title = L("Save modified .assets (default: overwrite the original)", "Сохранить изменённый .assets (по умолчанию — поверх оригинала)");
                 sfd.InitialDirectory = Path.GetDirectoryName(assetsPath);
-
-                if (isLevelContainer)
-                {
-                    // Без авто-расширения: имя должно совпадать с оригиналом (например «level1»).
-                    sfd.Filter = L("All files (*.*)|*.*", "Все файлы (*.*)|*.*");
-                    sfd.AddExtension = false;
-                    sfd.FileName = Path.GetFileName(assetsPath);
-                }
-                else
-                {
-                    sfd.Filter = L("Unity assets (*.assets)|*.assets|All files (*.*)|*.*", "Unity assets (*.assets)|*.assets|Все файлы (*.*)|*.*");
-                    sfd.FileName = Path.GetFileName(outputPath);
-                }
+                // Имя по умолчанию = имя оригинала → запись in-place, парный .resS остаётся корректным.
+                // Без авто-расширения, чтобы «resources.assets» не превратился в «resources.assets.assets».
+                sfd.AddExtension = false;
+                sfd.FileName = Path.GetFileName(assetsPath);
+                sfd.Filter = isLevelContainer
+                    ? L("All files (*.*)|*.*", "Все файлы (*.*)|*.*")
+                    : L("Unity assets (*.assets)|*.assets|All files (*.*)|*.*", "Unity assets (*.assets)|*.assets|Все файлы (*.*)|*.*");
 
                 if (sfd.ShowDialog() != DialogResult.OK)
                     return;

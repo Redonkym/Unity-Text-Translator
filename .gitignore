@@ -29,6 +29,8 @@ Tools/msdf-atlas-gen/output/
 **/msdf-atlas-gen/output/
 **/stderr.txt
 **/stdout.txt
+# Вложенная копия exe (артефакт распаковки) — сборка использует плоский tools/msdf-atlas-gen/msdf-atlas-gen.exe
+**/msdf-atlas-gen/msdf-atlas-gen/
 
 # ---- Артефакты переводчика (на случай локальных дампов рядом с проектом) ----
 *.translated.assets

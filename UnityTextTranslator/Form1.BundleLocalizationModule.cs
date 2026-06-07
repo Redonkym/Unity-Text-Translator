@@ -128,27 +128,6 @@ namespace UnityTextTranslator
                 mainTable.ResumeLayout();
             }
 
-            void AddLabeledWideTextRow(string labelEn, string labelRu, TextBox tb, float rowHeight = 42f)
-            {
-                var r = mainTable.RowCount++;
-                mainTable.RowStyles.Add(new RowStyle(SizeType.Absolute, rowHeight));
-                var lbl = new Label
-                {
-                    Text = L(labelEn, labelRu),
-                    Dock = DockStyle.Fill,
-                    Font = new Font("Segoe UI", 9.5f, FontStyle.Bold),
-                    ForeColor = isDarkTheme ? Color.FromArgb(226, 232, 240) : Color.FromArgb(17, 24, 39),
-                    TextAlign = ContentAlignment.MiddleLeft,
-                    AutoEllipsis = true,
-                    Margin = new Padding(0, 2, 8, 2)
-                };
-                tb.Margin = new Padding(0, 4, 0, 4);
-                tb.Dock = DockStyle.Fill;
-                mainTable.Controls.Add(lbl, 0, r);
-                mainTable.Controls.Add(tb, 1, r);
-                mainTable.SetColumnSpan(tb, 2);
-            }
-
             bundleLocPickBundleButton = CreateModernButton(L("Browse…", "Выбрать…"), ButtonStyleKind.Secondary);
             bundleLocBundlePathTextBox = new TextBox { Font = new Font("Segoe UI", 10f) };
             bundleLocBundlePathTextBox.Text = bundleLocBundlePath;

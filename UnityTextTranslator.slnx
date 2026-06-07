@@ -1,3 +1,4 @@
 <Solution>
   <Project Path="UnityTextTranslator/UnityTextTranslator.csproj" Id="1f5116da-4c83-4ba4-a71f-f2dfa180e225" />
+  <Project Path="UnityTextTranslator.Tests/UnityTextTranslator.Tests.csproj" />
 </Solution>

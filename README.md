@@ -1,8 +1,14 @@
-<!-- Language: English | [Русский](README.ru.md) -->
+**English** | [Русский](README.ru.md)
+
+[![Boosty](https://img.shields.io/badge/Boosty-redonkym-F15F2C?logo=boosty&logoColor=white)](https://boosty.to/redonkym)
 
 # Unity Text Translator
 
 A program for translating Unity games.
+
+![Unity Text Translator — JSON translator](docs/img/json-translator.png)
+
+![Unity Text Translator — Settings](docs/img/settings.png)
 
 ## What it does
 
@@ -16,9 +22,25 @@ A program for translating Unity games.
 
 There are still some bugs; they're being fixed.
 
+## How to use
+
+1. **Get the game text as JSON.** If you already have JSON dumps, skip this. Otherwise use the **Unity .assets** or **Bundles** tab to export the game's `.assets`/`.bundle` into a JSON folder.
+2. **Open the folder.** On the **JSON Files** tab click **Folder** and pick that JSON folder. The table fills with rows: File / Path / Original / Translation.
+3. **Translate.** Type into the **Translation** column, or:
+   - **AI translation** — fill empty cells through the API set in Settings (LibreTranslate / OpenRouter / a local OpenAI-compatible server);
+   - **Copy / Paste** — copy the rows as a table, paste them into any chat model, then paste the reply back (it's matched by content, so row order doesn't matter);
+   - Translation Memory auto-fills matches you already translated.
+4. **Save changes** — writes the translations back into the JSON files (keep **Create .bak backups** on for safety).
+5. **Put it back into the game.** Use the **Unity .assets** / **Bundles** tab to pack the translated JSON back into `.assets`/`.bundle`.
+6. **Cyrillic not showing? (IL2CPP / TextMeshPro)** Open the **Fonts** tab and run the wizard: analyze the `.assets` → build the atlas → patch → apply.
+
+Set the source/target language, theme and API key on the **Settings** tab.
+
 ## Building
 
 Open `UnityTextTranslator.slnx` in Visual Studio and build Release. Dependencies are packed into a single `.exe` with Fody/Costura. The project targets .NET Framework 4.8 and restores its NuGet packages automatically.
+
+Run the unit tests with `dotnet test` — the `UnityTextTranslator.Tests` project targets net8.0 and needs no Visual Studio.
 
 ## Third-party
 
