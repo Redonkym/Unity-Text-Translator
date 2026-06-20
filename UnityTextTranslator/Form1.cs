@@ -280,7 +280,11 @@ namespace UnityTextTranslator
             // Теги / слои частей тела и пр. идентификаторы, не пользовательский текст
             "bodyPartTag", "bodyPartLayer", "currentTag", "objectTag",
             // Unity backing field для Guid в сериализованных ScriptableObject / графах
-            "<Guid>k__BackingField"
+            "<Guid>k__BackingField",
+            // Диалоговые системы / Unity Localization (напр. SarahsHouse): технические поля, не текст для игрока.
+            // uid — GUID; variableName — внутренние переменные (lc_mad, dialog_*); m_Key/m_TableCollectionName —
+            // ключ и имя таблицы локализации; onDialogBaseAnim — имя анимации (Idle); location — внутренний id сцены (home/store/gym).
+            "uid", "variableName", "m_Key", "m_TableCollectionName", "onDialogBaseAnim", "location"
         }, StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
@@ -1351,6 +1355,7 @@ namespace UnityTextTranslator
             AddNavButton("Page", () => LoadJsonTranslatorModule());
             AddNavButton("Toolbox", () => LoadAssetsModule());
             AddNavButton("Fonts", () => LoadFontToolsModule());
+            AddNavButton("Textures", () => LoadTextureToolsModule());
             AddNavButton("Bundles", () => LoadBundleLocalizationModule());
             AddNavButton("Settings", () => LoadSettingsModule());
         }
@@ -3247,6 +3252,13 @@ namespace UnityTextTranslator
                 assetsModuleBuildButton.Margin = new Padding(0, 0, 10, 0);
                 assetsModuleBuildButton.Click += BtnImportAsset_Click;
                 actionsFlow.Controls.Add(assetsModuleBuildButton);
+
+                // IL2CPP (нет Managed, type tree вырезан): сгенерировать DummyDll → читаются поля MonoBehaviour.
+                var il2cppDummyButton = CreateModernButton(L("IL2CPP: dummy DLL", "IL2CPP: dummy-DLL"), ButtonStyleKind.Secondary);
+                il2cppDummyButton.Width = 236;
+                il2cppDummyButton.Margin = new Padding(0, 0, 10, 0);
+                il2cppDummyButton.Click += BtnIl2CppDummy_Click;
+                actionsFlow.Controls.Add(il2cppDummyButton);
             }
             else
             {
@@ -3490,6 +3502,7 @@ namespace UnityTextTranslator
             Log(mode == UnityToolboxMode.Full
                 ? L("Unity .assets module loaded.", "Модуль Unity .assets активирован.")
                 : L("Font replacement module loaded (TMP / TTF / MSDF atlas).", "Модуль замены шрифтов (TMP / TTF / атлас MSDF)."));
+            TryAutoAttachDummyDll();
             RefreshAssetsModuleFolderLabel();
             RefreshAssetsBrowser();
             UpdateStatus();
@@ -3530,6 +3543,7 @@ namespace UnityTextTranslator
 
                 lastUnityGameDataFolder = resolved;
                 SaveSettings();
+                TryAutoAttachDummyDll();
                 RefreshAssetsModuleFolderLabel();
                 RefreshAssetsBrowser();
                 UpdateStatus();

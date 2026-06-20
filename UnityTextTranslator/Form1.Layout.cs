@@ -2005,6 +2005,20 @@ namespace UnityTextTranslator
                         g.DrawLine(iconPen, 12, 18, 18, 18);
                         g.DrawLine(iconPen, 12, 22, 20, 22);
                         break;
+                    case "Textures":
+                        using (var imgPath = CreateRoundedPath(new Rectangle(7, 9, 18, 14), 3))
+                            g.DrawPath(iconPen, imgPath);
+                        g.FillEllipse(iconBrush, 11, 12, 3, 3); // «солнце»
+                        iconPen.LineJoin = LineJoin.Round;
+                        g.DrawLines(iconPen, new[]
+                        {
+                            new PointF(9, 22),
+                            new PointF(14, 16),
+                            new PointF(17, 19),
+                            new PointF(20, 15),
+                            new PointF(23, 22)
+                        }); // «горы»
+                        break;
                     case "Settings":
                         g.DrawEllipse(iconPen, 10, 10, 12, 12);
                         g.FillEllipse(iconBrush, 14, 14, 4, 4);

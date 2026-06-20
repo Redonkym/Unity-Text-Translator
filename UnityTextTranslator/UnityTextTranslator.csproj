@@ -80,6 +80,44 @@
     <Reference Include="Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
       <HintPath>..\packages\Newtonsoft.Json.13.0.4\lib\net45\Newtonsoft.Json.dll</HintPath>
     </Reference>
+    <!-- Декод текстур (фоны/картинки) — TextureFile + TextureDecoder. Только декод; обратно пишем RGBA32 сами. -->
+    <Reference Include="AssetsTools.NET.Texture">
+      <HintPath>..\packages\AssetsTools.NET.Texture.3.0.2\lib\netstandard2.0\AssetsTools.NET.Texture.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="AssetRipper.TextureDecoder">
+      <HintPath>..\packages\AssetRipper.TextureDecoder.1.3.0\lib\netstandard2.0\AssetRipper.TextureDecoder.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <!-- PNG чтение/запись для TextureFile (декод→PNG и кодирование PNG→RGBA32). Зависимости не объявлены в nuspec Texture. -->
+    <Reference Include="StbImageSharp">
+      <HintPath>..\packages\StbImageSharp.2.27.13\lib\net471\StbImageSharp.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="StbImageWriteSharp">
+      <HintPath>..\packages\StbImageWriteSharp.1.16.7\lib\netstandard2.0\StbImageWriteSharp.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Half">
+      <HintPath>..\packages\Half.1.0.0\lib\netstandard2.0\System.Half.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Buffers">
+      <HintPath>..\packages\System.Buffers.4.5.1\lib\net461\System.Buffers.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Memory">
+      <HintPath>..\packages\System.Memory.4.5.5\lib\net461\System.Memory.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Numerics.Vectors">
+      <HintPath>..\packages\System.Numerics.Vectors.4.5.0\lib\net46\System.Numerics.Vectors.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Runtime.CompilerServices.Unsafe">
+      <HintPath>..\packages\System.Runtime.CompilerServices.Unsafe.4.5.3\lib\net461\System.Runtime.CompilerServices.Unsafe.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Xml.Linq" />
@@ -89,6 +127,8 @@
     <Reference Include="System.Deployment" />
     <Reference Include="System.Drawing" />
     <Reference Include="System.Net.Http" />
+    <Reference Include="System.IO.Compression" />
+    <Reference Include="System.IO.Compression.FileSystem" />
     <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Xml" />
   </ItemGroup>
@@ -128,6 +168,15 @@
     <Compile Include="MsdfAtlasGenInterop.cs" />
     <Compile Include="TmpFontAssetMsdfAtlasPatcher.cs" />
     <Compile Include="TmpFontAssetIl2CppRawMetadataPatcher.cs" />
+    <Compile Include="TextureReplacePatcher.cs" />
+    <Compile Include="Form1.TextureWizard.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Il2CppDumperInterop.cs" />
+    <Compile Include="OcrInterop.cs" />
+    <Compile Include="Form1.Il2Cpp.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="Crc32Utility.cs" />
     <Compile Include="AssetMonoBehaviourFirstLevelDumper.cs" />
     <Compile Include="AssetHelper.cs" />

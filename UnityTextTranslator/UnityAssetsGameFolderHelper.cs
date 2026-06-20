@@ -376,11 +376,20 @@ namespace UnityTextTranslator
                 "Иначе MonoBehaviour экспортируются только с базовыми полями, игровой текст в JSON может не попасть.";
         }
 
+        /// <summary>
+        /// Папка с .dll, заменяющая Managed (например DummyDll от Il2CppDumper для IL2CPP-игр).
+        /// Если задана и существует — используется вместо штатного Managed при разборе MonoBehaviour.
+        /// </summary>
+        public static string ManagedFolderOverride { get; set; }
+
         /// <param name="diagnostics">Если задано, сюда пишется причина сбоя инициализации Cecil (папка Managed при этом может существовать).</param>
         public static bool TryAttachMonoCecilTemplateGenerator(AssetsManager manager, string dataFolder, out string managedFolder,
             ICollection<string> diagnostics = null)
         {
-            managedFolder = ResolveManagedFolder(dataFolder);
+            managedFolder =
+                (!string.IsNullOrWhiteSpace(ManagedFolderOverride) && Directory.Exists(ManagedFolderOverride))
+                    ? ManagedFolderOverride
+                    : ResolveManagedFolder(dataFolder);
             if (string.IsNullOrWhiteSpace(managedFolder))
                 return false;
 
