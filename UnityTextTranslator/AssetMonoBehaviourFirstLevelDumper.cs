@@ -10,9 +10,8 @@ using System.Text;
 namespace UnityTextTranslator
 {
     /// <summary>
-    /// Рекурсивный дамп полей MonoBehaviour (например TMP_FontAsset) с фильтром по полному пути имени.
-    /// Перед <see cref="AssetsManager.GetBaseField"/> подгружает classdata.tpk и type database (версия из метаданных .assets).
-    /// Для MonoBehaviour дополнительно логирует сырые байты и эвристический поиск PPtr (fileID=0, pathID) без Mono.Cecil.
+    /// Рекурсивный дамп полей MonoBehaviour (напр. TMP_FontAsset) с фильтром по пути имени; перед GetBaseField грузит classdata.tpk+type db.
+    /// Для MonoBehaviour ещё логирует сырые байты и эвристический поиск PPtr (fileID=0, pathID) без Mono.Cecil.
     /// </summary>
     internal static class AssetMonoBehaviourFirstLevelDumper
     {
@@ -79,10 +78,7 @@ namespace UnityTextTranslator
             DumpFields(baseField, "", messages, 0);
         }
 
-        /// <summary>
-        /// Читает тело объекта как в UABEA (смещение <see cref="AssetFileInfo.GetAbsoluteByteOffset"/>)
-        /// и ищет в сыром потоке пары int fileID + int64 pathID с шагом 4 байта (эвристика для ссылок на Texture2D и др.).
-        /// </summary>
+        /// <summary>Читает тело объекта как в UABEA и ищет в сыром потоке пары int fileID + int64 pathID с шагом 4 байта (эвристика PPtr на Texture2D и др.).</summary>
         private static void AppendMonoBehaviourRawPPtrScan(
             AssetsFileInstance afileInst,
             AssetFileInfo info,
@@ -147,10 +143,7 @@ namespace UnityTextTranslator
             AppendResolvedPathIdTypes(afileInst.file, messages, 404, 165);
         }
 
-        /// <summary>
-        /// Сохраняет тело MonoBehaviour в <c>tmp_{pathId}_raw.bin</c> и текстовый hex-дамп <c>tmp_{pathId}_raw.hex.txt</c>
-        /// рядом с открытым .assets (или в текущем каталоге процесса).
-        /// </summary>
+        /// <summary>Сохраняет тело MonoBehaviour в <c>tmp_{pathId}_raw.bin</c> + hex-дамп <c>.hex.txt</c> рядом с .assets (или в каталоге процесса).</summary>
         private static void TryWriteMonoBehaviourRawCaptureToDisk(
             long pathId,
             byte[] rawBytes,
@@ -268,47 +261,32 @@ namespace UnityTextTranslator
                     return s;
                 }
             }
-            catch
-            {
-                /* */
-            }
+            catch { }
 
             try
             {
                 return child.AsInt.ToString(CultureInfo.InvariantCulture);
             }
-            catch
-            {
-                /* */
-            }
+            catch { }
 
             try
             {
                 return child.AsLong.ToString(CultureInfo.InvariantCulture);
             }
-            catch
-            {
-                /* */
-            }
+            catch { }
 
             try
             {
                 return child.AsFloat.ToString(CultureInfo.InvariantCulture);
             }
-            catch
-            {
-                /* */
-            }
+            catch { }
 
             try
             {
                 if (child.AsByteArray != null && child.AsByteArray.Length > 0)
                     return "byte[" + child.AsByteArray.Length + "]";
             }
-            catch
-            {
-                /* */
-            }
+            catch { }
 
             try
             {

@@ -7,10 +7,8 @@ using System.Text;
 namespace UnityTextTranslator
 {
     /// <summary>
-    /// Распознавание текста на картинках через <b>встроенный OCR Windows 10</b> (Windows.Media.Ocr) —
-    /// без сторонних движков/языковых данных и без тяжёлых бинарников. Запускаем системный PowerShell с
-    /// WinRT-скриптом (через stdin, чтобы не упираться в execution policy). Скрипт-помощник кладём в
-    /// <c>%AppData%\UnityTextTranslator\ocr\ocr.ps1</c> для прозрачности; запуск — по содержимому.
+    /// OCR картинок встроенным Windows 10 OCR (Windows.Media.Ocr) — без сторонних движков. Запускаем системный
+    /// PowerShell с WinRT-скриптом; копию ocr.ps1 кладём в <c>%AppData%\…\ocr\</c> для прозрачности (запуск — по содержимому).
     /// </summary>
     internal static class OcrInterop
     {
@@ -58,13 +56,10 @@ Write-Output ('ocr done: ' + $n)
                 Directory.CreateDirectory(OcrDir);
                 File.WriteAllText(ScriptPath, OcrScript, new UTF8Encoding(false));
             }
-            catch { /* не критично — запускаем по содержимому */ }
+            catch { }
         }
 
-        /// <summary>
-        /// OCR всех PNG в папке встроенным Windows OCR. Возвращает карту «имя_файла.png → распознанный текст».
-        /// Пустой результат, если OCR/язык недоступны (на не-Windows10 или без языкового пакета).
-        /// </summary>
+        /// <summary>OCR всех PNG в папке → карта «имя.png → текст». Пусто, если OCR/язык недоступны (не-Windows10 или без языкового пакета).</summary>
         internal static Dictionary<string, string> RunOcrOnFolder(string imageFolder, string langTag, ICollection<string> log)
         {
             var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -73,7 +68,7 @@ Write-Output ('ocr done: ' + $n)
 
             EnsureScript();
             var outTsv = Path.Combine(imageFolder, "_ocr_result.tsv");
-            try { if (File.Exists(outTsv)) File.Delete(outTsv); } catch { /* ignore */ }
+            try { if (File.Exists(outTsv)) File.Delete(outTsv); } catch { }
 
             var psExe = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.System),
@@ -130,7 +125,7 @@ Write-Output ('ocr done: ' + $n)
                         if (!string.IsNullOrEmpty(file))
                             map[file] = text;
                     }
-                    try { File.Delete(outTsv); } catch { /* ignore */ }
+                    try { File.Delete(outTsv); } catch { }
                 }
             }
             catch (Exception ex)

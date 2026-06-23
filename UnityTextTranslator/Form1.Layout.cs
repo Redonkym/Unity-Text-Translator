@@ -87,8 +87,7 @@ namespace UnityTextTranslator
                 }
             }
 
-            // Намеренно НЕ восстанавливаем максимизацию: окно открывается обычным (перемещаемым),
-            // иначе приходится сначала кликать «восстановить», чтобы его подвинуть.
+            // намеренно НЕ восстанавливаем максимизацию: окно открывается обычным (перемещаемым), иначе сначала жми «восстановить»
 
             this.KeyPreview = true;
             this.Font = new Font("Segoe UI", 9.75f);
@@ -333,7 +332,7 @@ namespace UnityTextTranslator
             catch
             {
                 try { MaximizedBounds = Screen.PrimaryScreen.WorkingArea; }
-                catch { /* игнор */ }
+                catch { }
             }
         }
 
@@ -957,7 +956,7 @@ namespace UnityTextTranslator
                         return f;
                     f.Dispose();
                 }
-                catch { /* следующий вариант */ }
+                catch { }
             }
             return new Font("Segoe UI", size, FontStyle.Bold);
         }
@@ -1482,11 +1481,9 @@ namespace UnityTextTranslator
             dgv.Columns["Original"].DefaultCellStyle.WrapMode = DataGridViewTriState.True;
             dgv.Columns["Translated"].DefaultCellStyle.WrapMode = DataGridViewTriState.True;
 
-            // Сортировка — программная (Programmatic), НЕ Automatic: встроенная сортировка DataGridView
-            // переставила бы строки грида, не трогая список translationItems, и связь «строка↔элемент» (row.Tag)
-            // осталась бы корректной, но порядок СПИСКА разошёлся бы с гридом (сохранение/экспорт идут по списку).
-            // Поэтому сортируем сами (SortJsonTableByColumn): переставляем и список, и грид; PopulateJsonGridRowsFast
-            // заново проставляет row.Tag. Клик по заголовку обрабатывает Dgv_ColumnHeaderMouseClick.
+            // сортировка программная (НЕ Automatic): встроенная переставила бы только грид, а список translationItems
+            // (по нему идёт сохранение/экспорт) разошёлся бы. SortJsonTableByColumn сортирует и список, и грид
+            // (PopulateJsonGridRowsFast заново проставляет row.Tag); клик по заголовку — Dgv_ColumnHeaderMouseClick.
             foreach (DataGridViewColumn col in dgv.Columns)
                 col.SortMode = DataGridViewColumnSortMode.Programmatic;
 
@@ -1522,6 +1519,21 @@ namespace UnityTextTranslator
                 TextAlign = ContentAlignment.MiddleLeft,
                 Font = new Font("Segoe UI", 9.5f, FontStyle.Bold)
             };
+            var searchGo = new Button
+            {
+                Text = "▶",
+                Dock = DockStyle.Right,
+                Width = 34,
+                FlatStyle = FlatStyle.Flat,
+                TabStop = false,
+                Font = new Font("Segoe UI", 9f),
+                Cursor = Cursors.Hand
+            };
+            searchGo.FlatAppearance.BorderSize = 0;
+            searchGo.Click += (_, __) => RunJsonTableSearchFromBox();
+            var searchTip = new ToolTip();
+            searchTip.SetToolTip(searchGo, L("Search (Enter)", "Искать (Enter)"));
+
             var searchClose = new Button
             {
                 Text = "✕",
@@ -1535,17 +1547,13 @@ namespace UnityTextTranslator
             searchClose.FlatAppearance.BorderSize = 0;
             searchClose.Click += (_, __) => HideJsonTableSearchBar(true);
 
+            // Fill — первым; затем Right-доки: searchGo (внутренний, ▶) до searchClose (внешний, ✕) → [поле | ▶ | ✕].
             jsonSearchPanel.Controls.Add(jsonSearchBox);
+            jsonSearchPanel.Controls.Add(searchGo);
             jsonSearchPanel.Controls.Add(searchClose);
             jsonSearchPanel.Controls.Add(searchIcon);
 
-            jsonSearchBox.TextChanged += (_, __) =>
-            {
-                currentSearchText = jsonSearchBox.Text.Trim();
-                ApplyTableSearch();
-                UpdateProgressStats();
-                UpdateStatus();
-            };
+            // только Enter/кнопка, не живой фильтр — живой «вешал» UI на большой таблице
             jsonSearchBox.KeyDown += (_, e) =>
             {
                 if (e.KeyCode == Keys.Escape)
@@ -1555,7 +1563,7 @@ namespace UnityTextTranslator
                 }
                 else if (e.KeyCode == Keys.Enter)
                 {
-                    FindNextTableSearchMatch();
+                    RunJsonTableSearchFromBox();
                     e.Handled = e.SuppressKeyPress = true;
                 }
             };
@@ -2165,10 +2173,7 @@ namespace UnityTextTranslator
                     panel.Region?.Dispose();
                     panel.Region = CreateRoundedRegion(panel.Size, radius);
                 }
-                catch
-                {
-                    // игнорируем редкие сбои Region при ранней инициализации
-                }
+                catch { }
             }
 
             panel.SizeChanged += Clip;
@@ -2348,7 +2353,7 @@ namespace UnityTextTranslator
                     if (DwmSetWindowAttribute(form.Handle, 20, ref dark, sizeof(int)) != 0)
                         DwmSetWindowAttribute(form.Handle, 19, ref dark, sizeof(int));
                 }
-                catch { /* ignore */ }
+                catch { }
             }
 
             if (form.IsHandleCreated)
@@ -2357,10 +2362,7 @@ namespace UnityTextTranslator
                 form.HandleCreated += (_, __) => Apply();
         }
 
-        /// <summary>
-        /// Тематизирует нативные полосы прокрутки контрола и всех его детей под текущую тему
-        /// (тёмные при тёмных темах). Применять после создания хэндла.
-        /// </summary>
+        /// <summary>Тематизирует нативные скроллбары контрола и детей под текущую тему (тёмные при тёмных). После создания хэндла.</summary>
         private void ApplyThemedScrollBars(Control root)
         {
             if (root == null)
@@ -2375,9 +2377,9 @@ namespace UnityTextTranslator
                     if (c.IsHandleCreated)
                         SetWindowTheme(c.Handle, subApp, null);
                     else
-                        c.HandleCreated += (s, e) => { try { SetWindowTheme(((Control)s).Handle, subApp, null); } catch { /* ignore */ } };
+                        c.HandleCreated += (s, e) => { try { SetWindowTheme(((Control)s).Handle, subApp, null); } catch { } };
                 }
-                catch { /* ignore */ }
+                catch { }
 
                 foreach (Control child in c.Controls)
                     Apply(child);
@@ -2418,8 +2420,8 @@ namespace UnityTextTranslator
         }
 
         /// <summary>
-        /// По умолчанию DataGridView при Ctrl+C копирует все выделенные ячейки (часто всю строку с TAB).
-        /// Здесь: если ячейка не в режиме редактирования — в буфер только содержимое <see cref="DataGridView.CurrentCell"/> (можно F2 и выделить фрагмент — тогда сработает стандартное копирование из TextBox).
+        /// Ctrl+C вне режима редактирования копирует только <see cref="DataGridView.CurrentCell"/> (не всю строку с TAB);
+        /// F2 + выделение фрагмента → стандартное копирование из TextBox.
         /// </summary>
         private static bool TryClipboardCopyCurrentCellWhenNotEditing(DataGridView grid, Keys keyData)
         {

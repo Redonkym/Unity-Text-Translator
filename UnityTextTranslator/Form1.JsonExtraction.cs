@@ -21,9 +21,7 @@ namespace UnityTextTranslator
 {
     public partial class Form1
     {
-        /// <summary>
-        /// Visual Scripting / графы: строки «port» и «node» под объектом «input» внутри ветки «RefIds» — связи узлов, не локализуемый текст.
-        /// </summary>
+        /// <summary>VS/графы: «port»/«node» под «input» в ветке «RefIds» — связи узлов, не локализуемый текст.</summary>
         private static bool ShouldSkipJsonPropertyForTranslation(IReadOnlyList<string> pathToParentObject, string propertyName)
         {
             if (string.IsNullOrEmpty(propertyName) || pathToParentObject == null || pathToParentObject.Count == 0)
@@ -54,9 +52,7 @@ namespace UnityTextTranslator
             return string.Equals(pathToParentObject[pathToParentObject.Count - 1], "m_LocaleId", StringComparison.OrdinalIgnoreCase);
         }
 
-        /// <summary>
-        /// Файлы вида <c>ClothInstance-*.json</c> (дамп UABEA MonoBehaviour одежды): совпадают с ключами в <c>ClothesDatabase</c> и в сейве.
-        /// </summary>
+        /// <summary>Файлы <c>ClothInstance-*.json</c> (дамп UABEA MonoBehaviour одежды): совпадают с ключами в <c>ClothesDatabase</c> и в сейве.</summary>
         private static bool IsClothInstanceUnityExportJson(string fileName)
         {
             if (string.IsNullOrEmpty(fileName))
@@ -64,10 +60,7 @@ namespace UnityTextTranslator
             return Path.GetFileName(fileName).StartsWith("ClothInstance-", StringComparison.OrdinalIgnoreCase);
         }
 
-        /// <summary>
-        /// Поля идентичности каталога одежды — не подписи для локализации (перевод ломает сопоставление с сейвом).
-        /// <c>m_Name</c> уже в <see cref="SkipKeys"/>; здесь исключаем дублирующий ключ одежды.
-        /// </summary>
+        /// <summary>Поля идентичности каталога одежды — не подписи (перевод ломает сопоставление с сейвом). <c>m_Name</c> уже в <see cref="SkipKeys"/>, тут — дублирующий ключ.</summary>
         private static bool ShouldSkipClothCatalogKeyFields(string fileName, string propertyName)
         {
             if (!IsClothInstanceUnityExportJson(fileName) || string.IsNullOrEmpty(propertyName))
@@ -75,9 +68,7 @@ namespace UnityTextTranslator
             return string.Equals(propertyName, "clothName", StringComparison.OrdinalIgnoreCase);
         }
 
-        /// <summary>
-        /// Дампы UABEA вида «TypeName-resources-{pathId}.json»: при удалении JSON «без строк» не трогаем файл, если там остались только служебные поля.
-        /// </summary>
+        /// <summary>Дампы UABEA «TypeName-resources-{pathId}.json»: при удалении JSON «без строк» не трогаем, если остались только служебные поля.</summary>
         private static bool IsUabeaResourcesAssetDumpJson(string fileName)
         {
             if (string.IsNullOrEmpty(fileName))
@@ -234,9 +225,8 @@ namespace UnityTextTranslator
                 foreach (JProperty prop in token.Children<JProperty>())
                 {
                     if (SkipKeys.Contains(prop.Name.Trim())) continue;
-                    // Технические поддеревья Unity (список отключённых полей инспектора Cinemachine
-                    // m_ExcludedPropertiesInInspector, scenesForLoad/Unload, eyeExpNames, TMP style-defs):
-                    // их значения — имена C#-полей/идентификаторы, а не игровой текст. Не извлекаем целиком.
+                    // технические поддеревья Unity (m_ExcludedPropertiesInInspector, scenesForLoad/Unload, eyeExpNames, TMP style-defs):
+                    // их значения — имена полей/идентификаторы, а не игровой текст
                     if (MetadataPurgeTechnicalPathSegments.Contains(prop.Name.Trim())) continue;
                     if (ShouldSkipJsonPropertyForTranslation(currentPath, prop.Name.Trim())) continue;
                     if (ShouldSkipUnityLocaleCodeField(currentPath, prop.Name.Trim())) continue;

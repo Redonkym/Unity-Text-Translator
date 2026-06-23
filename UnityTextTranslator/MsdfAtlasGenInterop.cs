@@ -9,10 +9,7 @@ using System.Threading.Tasks;
 
 namespace UnityTextTranslator
 {
-    /// <summary>
-    /// Встроенная копия <see href="https://github.com/Chlumsky/msdf-atlas-gen">msdf-atlas-gen</see> (MIT):
-    /// MSDF/SDF атлас из TTF/OTF — тот же класс утилит, что часто используют для SDF-шрифтов.
-    /// </summary>
+    /// <summary>Встроенная копия <see href="https://github.com/Chlumsky/msdf-atlas-gen">msdf-atlas-gen</see> (MIT): MSDF/SDF атлас из TTF/OTF.</summary>
     internal static class MsdfAtlasGenInterop
     {
         internal const string CompanionExeName = "msdf-atlas-gen.exe";
@@ -109,9 +106,7 @@ namespace UnityTextTranslator
             }
         }
 
-        /// <summary>
-        /// Пишет charset.txt для <c>-charset</c>: по одному decimal codepoint на строку (формат msdf-atlas-gen).
-        /// </summary>
+        /// <summary>Пишет charset.txt для <c>-charset</c>: по одному decimal codepoint на строку (формат msdf-atlas-gen).</summary>
         internal static void WriteCharsetFileFromRanges(string charsetFilePath, string charsetRanges)
         {
             if (string.IsNullOrWhiteSpace(charsetFilePath))
@@ -221,10 +216,7 @@ namespace UnityTextTranslator
                 if (File.Exists(cand))
                     return cand;
             }
-            catch
-            {
-                /* ignore */
-            }
+            catch { }
 
             try
             {
@@ -240,19 +232,13 @@ namespace UnityTextTranslator
                     }
                 }
             }
-            catch
-            {
-                /* ignore */
-            }
+            catch { }
 
             try
             {
                 return MaterializeEmbeddedCompanionExe();
             }
-            catch
-            {
-                /* ignore */
-            }
+            catch { }
 
             return null;
         }
@@ -300,10 +286,7 @@ namespace UnityTextTranslator
                         return path;
                 }
             }
-            catch
-            {
-                /* replace */
-            }
+            catch { }
 
             var tmp = path + ".tmp";
             File.WriteAllBytes(tmp, payload);
@@ -323,10 +306,7 @@ namespace UnityTextTranslator
                     if (File.Exists(tmp))
                         File.Delete(tmp);
                 }
-                catch
-                {
-                    /* ignore */
-                }
+                catch { }
             }
 
             return path;

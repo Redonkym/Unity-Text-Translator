@@ -42,8 +42,7 @@ namespace UnityTextTranslator
     }
 
     /// <summary>
-    /// LibreTranslate: POST …/translate, тело q / source / target / format, ответ translatedText.
-    /// Остальные: POST …/chat/completions (OpenAI-совместимо), опционально Bearer и модель из настроек.
+    /// LibreTranslate: POST …/translate (q/source/target/format → translatedText). Остальные: POST …/chat/completions (OpenAI), Bearer+модель из настроек.
     /// </summary>
     internal static class LocalTranslateApi
     {
@@ -61,9 +60,8 @@ namespace UnityTextTranslator
         }
 
         /// <summary>
-        /// Эвристика «модель ведёт скрытый reasoning» (deepseek-reasoner, qwen *-thinking, o1/o3/o4, qwq, magistral…):
-        /// такой модели нужен заметно больший бюджет вывода, иначе скрытый &lt;think&gt; съедает лимит и финальный
-        /// ответ обрезается в пустоту («пустой ответ модели»).
+        /// Модель ведёт скрытый reasoning (deepseek-reasoner, *-thinking, o1/o3/o4, qwq, magistral…): нужен больший бюджет вывода,
+        /// иначе скрытый &lt;think&gt; съедает лимит и ответ обрезается в пустоту.
         /// </summary>
         internal static bool ModelLikelyUsesHiddenReasoning(string modelId)
         {
@@ -84,11 +82,8 @@ namespace UnityTextTranslator
 
         /// <summary>Потолок output-токенов: тесный для обычных моделей (экономия + бережёт TPM-квоту), просторный — для «думающих».</summary>
         /// <remarks>
-        /// Обычной модели перевод редко длиннее ~2× оригинала, поэтому держим компактный потолок (≤2048) —
-        /// он не режет легитимный ответ, но не даёт «разболтавшейся» модели сгенерировать (и оплатить) лишнее,
-        /// а у многих провайдеров max_tokens резервируется против лимита запросов (TPM). «Думающие» модели
-        /// (см. <see cref="ModelLikelyUsesHiddenReasoning"/>) тратят часть бюджета на скрытый &lt;think&gt; —
-        /// им оставляем прежний большой пол/потолок (512…8192), иначе ответ обрезается в пустоту.
+        /// Обычной модели перевод редко длиннее ~2× оригинала → компактный потолок (≤2048): не режет ответ, не даёт лишнего,
+        /// а max_tokens у многих провайдеров резервируется против TPM. «Думающие» (<see cref="ModelLikelyUsesHiddenReasoning"/>) — 512…8192.
         /// </remarks>
         internal static int ComputeChatMaxOutputTokens(string userText, string modelId = null)
         {
@@ -105,10 +100,7 @@ namespace UnityTextTranslator
         private static readonly Regex ThinkBlockRegex =
             new Regex(@"<think>.*?</think>", RegexOptions.Singleline | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
-        /// <summary>
-        /// Убирает блок рассуждений «думающих» моделей из ответа: парный &lt;think&gt;…&lt;/think&gt; вырезается,
-        /// усечённый (открыт без закрытия) — отбрасывается до конца (полезного ответа там уже нет).
-        /// </summary>
+        /// <summary>Убирает рассуждения: парный &lt;think&gt;…&lt;/think&gt; вырезает, усечённый (без закрытия) отбрасывает до конца.</summary>
         internal static string StripModelThinkingArtifacts(string s)
         {
             if (string.IsNullOrEmpty(s))
@@ -127,9 +119,7 @@ namespace UnityTextTranslator
                 : "From " + sourceCode.Trim();
             var tgt = string.IsNullOrWhiteSpace(targetCode) ? "en" : targetCode.Trim();
             var markup = TextLikelyHasGameMarkup(userTextSample) ? ChatMarkupHintWhenNeeded : "";
-            // Компактная формулировка: промпт уходит на КАЖДОМ запросе, поэтому короче = меньше входных
-            // токенов за пакет. Сохранены все ограничения (роль, исходный/целевой язык, разметка условно,
-            // «только перевод, без кавычек/ограждений/заметок»). "→" = «→» (1 токен вместо «Target ISO:»).
+            // компактно: промпт уходит на КАЖДОМ запросе → короче = меньше входных токенов (ограничения сохранены)
             return "Game UI translator. " + srcHint + " → " + tgt + ". " + markup +
                    "Reply with only the translation (no quotes/fences/notes).";
         }
@@ -1269,10 +1259,7 @@ namespace UnityTextTranslator
             }
         }
 
-        /// <summary>
-        /// Apify: POST .../v2/acts/{actorId}/run-sync?token=... с телом { "text": "...", "source": "...", "target": "..." }.
-        /// Поддерживается как Bearer в заголовке, так и ?token= в URL.
-        /// </summary>
+        /// <summary>Apify: POST …/v2/acts/{actorId}/run-sync?token=… с {text,source,target}. Bearer-заголовок или ?token= в URL.</summary>
         public static async Task<string> TranslateApifyAsync(
             string baseUrl,
             string apiToken,
@@ -1574,10 +1561,7 @@ namespace UnityTextTranslator
                         return AppendDashScopeAccessDeniedHint(msg, body);
                     }
                 }
-                catch
-                {
-                    /* не JSON — режем как текст ниже */
-                }
+                catch { } // не JSON — режем как текст ниже
             }
 
             const int max = 500;

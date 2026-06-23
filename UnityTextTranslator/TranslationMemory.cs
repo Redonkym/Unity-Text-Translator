@@ -56,10 +56,7 @@ namespace UnityTextTranslator
             return true;
         }
 
-        /// <summary>
-        /// Очевидно битая пара (артефакт сдвига строк): одна сторона — чистое число/символы, другая — текст.
-        /// Напр. «HV»→«250», «250»→«Причёска», «Hunger»→«100». «250»→«250» и «Голод»→«Hunger» НЕ считаются битыми.
-        /// </summary>
+        /// <summary>Битая пара (артефакт сдвига): одна сторона число/символы, другая текст («HV»→«250», «Hunger»→«100»); «250»→«250» не битая.</summary>
         public static bool IsLikelyShiftCorruptedPair(string original, string translated)
         {
             return LooksLikeNonTranslatableToken(original) != LooksLikeNonTranslatableToken(translated);
@@ -74,8 +71,7 @@ namespace UnityTextTranslator
                     continue;
                 if (string.IsNullOrWhiteSpace(kv.Value))
                     continue;
-                // Не сохраняем заведомо сдвинутый мусор (число↔текст) — иначе он копится в памяти и
-                // потом подставляется при «обновить». Корень (сдвиг) уже починен, это страховка.
+                // не сохраняем сдвинутый мусор (число↔текст): иначе копится и подставляется при «обновить» (страховка)
                 if (IsLikelyShiftCorruptedPair(kv.Key, kv.Value))
                     continue;
                 dict[kv.Key] = kv.Value;
@@ -103,7 +99,7 @@ namespace UnityTextTranslator
                 if (File.Exists(MemoryFilePath))
                     File.Copy(MemoryFilePath, MemoryFilePath + ".bak", overwrite: true);
             }
-            catch { /* бэкап необязателен */ }
+            catch { }
 
             foreach (var k in bad)
                 dict.Remove(k);
@@ -116,7 +112,7 @@ namespace UnityTextTranslator
         {
             int had = 0;
             try { had = Load().Count; }
-            catch { /* всё равно пробуем удалить */ }
+            catch { }
 
             try
             {

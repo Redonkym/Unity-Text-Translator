@@ -9,9 +9,7 @@ using System.Windows.Forms;
 
 namespace UnityTextTranslator
 {
-    /// <summary>
-    /// Поиск каталога *_Data, перечисление и предзагрузка .assets как в UABEA Next (чтобы разрешались ссылки MonoBehaviour).
-    /// </summary>
+    /// <summary>Поиск *_Data, перечисление и предзагрузка .assets (чтобы разрешались ссылки MonoBehaviour, как UABEA Next).</summary>
     internal static class UnityAssetsGameFolderHelper
     {
         private static readonly FieldInfo AssetsFileInstancePathField =
@@ -20,10 +18,7 @@ namespace UnityTextTranslator
         private static readonly Regex StreamingLevelBuiltinFileName =
             new Regex(@"^level\d+$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
-        /// <summary>
-        /// В билде стриминговые сцены — файлы без расширения <c>level0</c>, <c>level1</c> и т.д. с парным <c>levelN.resS</c>.
-        /// Перезапись контейнера через сторонние инструменты часто ломает согласование с .resS (corrupted / Position out of bounds).
-        /// </summary>
+        /// <summary>Стриминговые сцены — extensionless <c>levelN</c> с парным <c>levelN.resS</c>; перезапись сторонним инструментом часто ломает .resS (corrupted/out of bounds).</summary>
         public static bool LooksLikeStreamingSceneLevelContainer(string assetContainerPath)
         {
             if (string.IsNullOrWhiteSpace(assetContainerPath))
@@ -42,10 +37,7 @@ namespace UnityTextTranslator
             }
         }
 
-        /// <summary>
-        /// Поднимаемся по каталогам от пути bundle (обычно в <c>Name_Data\StreamingAssets\...</c>) пока имя текущего каталога
-        /// не станет вида GameName_Data. Нужно, чтобы не путать <c>SarahsHouse_Data</c> и <c>TooMuchLight_Data</c> для Addressables bundle.
-        /// </summary>
+        /// <summary>Вверх от пути bundle до каталога <c>*_Data</c> — чтобы не путать <c>SarahsHouse_Data</c> и <c>TooMuchLight_Data</c> для Addressables bundle.</summary>
         public static string TryInferGameDataAncestorFromBundlePath(string bundleFilePath)
         {
             if (string.IsNullOrWhiteSpace(bundleFilePath) || !File.Exists(bundleFilePath))
@@ -68,10 +60,7 @@ namespace UnityTextTranslator
                     dir = parent.FullName;
                 }
             }
-            catch
-            {
-                /* ignore */
-            }
+            catch { }
 
             return null;
         }
@@ -124,10 +113,7 @@ namespace UnityTextTranslator
                 if (dataDirs.Count == 1)
                     return dataDirs[0];
             }
-            catch
-            {
-                // используем выбранную папку как есть
-            }
+            catch { }
 
             return full;
         }
@@ -149,10 +135,7 @@ namespace UnityTextTranslator
                     dir = Path.GetDirectoryName(dir);
                 }
             }
-            catch
-            {
-                /* ignore */
-            }
+            catch { }
             return null;
         }
 
@@ -173,10 +156,7 @@ namespace UnityTextTranslator
                     {
                         result.Add(Path.GetFullPath(path));
                     }
-                    catch
-                    {
-                        // skip
-                    }
+                    catch { }
 
                     if (result.Count >= maxFiles)
                         break;
@@ -284,10 +264,7 @@ namespace UnityTextTranslator
                 {
                     set.Add(Path.GetFullPath(p));
                 }
-                catch
-                {
-                    // skip
-                }
+                catch { }
             }
 
             return set;
@@ -312,18 +289,12 @@ namespace UnityTextTranslator
                         return dir;
                 }
             }
-            catch
-            {
-                // ignored
-            }
+            catch { }
 
             return null;
         }
 
-        /// <summary>
-        /// У IL2CPP-standalone нет <c>Managed/*.dll</c>: нативный <c>GameAssembly.dll</c> и каталог <c>il2cpp_data</c>
-        /// (расшифровку полей скриптов через Mono.Cecil, как для Mono-сборки, не применить).
-        /// </summary>
+        /// <summary>IL2CPP-standalone: нет <c>Managed/*.dll</c> (есть <c>GameAssembly.dll</c>/<c>il2cpp_data</c>) → разбор полей через Mono.Cecil неприменим.</summary>
         public static bool IsLikelyIl2CppGameDataFolder(string dataFolder)
         {
             if (string.IsNullOrWhiteSpace(dataFolder) || !Directory.Exists(dataFolder))
@@ -340,10 +311,7 @@ namespace UnityTextTranslator
                 if (File.Exists(Path.Combine(dataFolder, "GameAssembly.dll")))
                     return true;
             }
-            catch
-            {
-                // ignored
-            }
+            catch { }
 
             try
             {
@@ -352,10 +320,7 @@ namespace UnityTextTranslator
                     File.Exists(Path.Combine(parent, "GameAssembly.dll")))
                     return true;
             }
-            catch
-            {
-                // ignored
-            }
+            catch { }
 
             return false;
         }
@@ -376,10 +341,7 @@ namespace UnityTextTranslator
                 "Иначе MonoBehaviour экспортируются только с базовыми полями, игровой текст в JSON может не попасть.";
         }
 
-        /// <summary>
-        /// Папка с .dll, заменяющая Managed (например DummyDll от Il2CppDumper для IL2CPP-игр).
-        /// Если задана и существует — используется вместо штатного Managed при разборе MonoBehaviour.
-        /// </summary>
+        /// <summary>Папка .dll вместо Managed (напр. DummyDll от Il2CppDumper); если задана и существует — берётся вместо штатного Managed.</summary>
         public static string ManagedFolderOverride { get; set; }
 
         /// <param name="diagnostics">Если задано, сюда пишется причина сбоя инициализации Cecil (папка Managed при этом может существовать).</param>
@@ -402,10 +364,7 @@ namespace UnityTextTranslator
                 {
                     exeDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
                 }
-                catch
-                {
-                    /* ignore */
-                }
+                catch { }
 
                 Program.TryLoadMonoCecilRocksAssembly(exeDir);
                 manager.MonoTempGenerator = new MonoCecilTempGenerator(managedFolder);
@@ -421,10 +380,7 @@ namespace UnityTextTranslator
             }
         }
 
-        /// <summary>
-        /// Mono.Cecil.Rocks.dll лежит в том же NuGet-пакете, что и Mono.Cecil.dll, но MSBuild копирует в выход только явно
-        /// указанные ссылки. Если Rocks нет рядом с exe, <see cref="MonoCecilTempGenerator"/> падает с FileNotFoundException при разборе типов.
-        /// </summary>
+        /// <summary>Mono.Cecil.Rocks.dll в том же NuGet, что Mono.Cecil, но MSBuild копирует только явные ссылки; без Rocks рядом с exe <see cref="MonoCecilTempGenerator"/> падает FileNotFoundException.</summary>
         public static string GetMonoCecilSatelliteAssemblyDiagnosticOrNull()
         {
             try
@@ -436,10 +392,7 @@ namespace UnityTextTranslator
                         if (string.Equals(asm.GetName().Name, "Mono.Cecil.Rocks", StringComparison.OrdinalIgnoreCase))
                             return null;
                     }
-                    catch
-                    {
-                        // skip
-                    }
+                    catch { }
                 }
 
                 var self = Assembly.GetExecutingAssembly();
@@ -462,10 +415,7 @@ namespace UnityTextTranslator
             }
         }
 
-        /// <summary>
-        /// Загружает до <paramref name="maxRootLoads"/> файлов .assets из дерева <paramref name="dataFolder"/> (порядок приоритетный).
-        /// </summary>
-        /// <summary>Сгенерированный нами артефакт (вывод сборки / временный файл импорта), а не оригинальный контейнер игры.</summary>
+        /// <summary>Наш артефакт (вывод сборки / временный импорт), а не оригинальный контейнер игры.</summary>
         public static bool IsUttGeneratedAssetsArtifact(string fileNameOrPath)
         {
             if (string.IsNullOrEmpty(fileNameOrPath))
@@ -499,10 +449,8 @@ namespace UnityTextTranslator
                 if (loaded.Contains(full))
                     continue;
 
-                // НЕ подгружаем наши собственные артефакты: вывод «*.translated.assets» и временный
-                // «*_utt_import_tmp». Иначе менеджер держит их открытыми на чтение, и запись результата
-                // в тот же «*.translated.assets» падает «файл используется другим процессом» (lock самим
-                // приложением). Реальные зависимости игры ссылаются на оригинальные имена, не на эти.
+                // не подгружаем свои артефакты (*.translated.assets, *_utt_import_tmp): иначе менеджер держит
+                // их открытыми и запись результата падает «файл занят». Зависимости игры на них не ссылаются.
                 if (IsUttGeneratedAssetsArtifact(full))
                     continue;
 
@@ -546,10 +494,7 @@ namespace UnityTextTranslator
                     if (string.Equals(Path.GetFullPath(p), full, StringComparison.OrdinalIgnoreCase))
                         return inst;
                 }
-                catch
-                {
-                    // skip
-                }
+                catch { }
             }
 
             return manager.LoadAssetsFile(full, loadDeps: true);
@@ -568,10 +513,7 @@ namespace UnityTextTranslator
                 if (target.StartsWith(root, StringComparison.OrdinalIgnoreCase))
                     return target.Substring(root.Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
             }
-            catch
-            {
-                // fallback ниже
-            }
+            catch { }
 
             return Path.GetFileName(fullFilePath);
         }

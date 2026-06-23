@@ -6,19 +6,15 @@ using System.Text.RegularExpressions;
 
 namespace UnityTextTranslator
 {
-    /// <summary>
-    /// Пары основной SerializedFile ↔ .resS / .resource (.split*) на диске.
-    /// После импорта JSON копируем оригинальные ресурсы к имени сохранённого контейнера.
-    /// </summary>
+    /// <summary>Пары SerializedFile ↔ .resS/.resource(.split*) на диске; после импорта JSON копируем ресурсы к имени сохранённого контейнера.</summary>
     internal static class UnitySerializedFileSidecars
     {
         private static readonly Regex SplitSuffixRegex =
             new Regex(@"\.split\d+$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
         /// <summary>
-        /// Сохранение стриминговой сцены как <c>levelN.translated.assets</c> оставляет в <see cref="AssetsFileMetadata.Externals"/>
-        /// ссылки на это имя. После переименования пары в <c>levelN</c> + <c>levelN.resS</c> движок открывает другие файлы,
-        /// а смещения в заголовке не совпадают — <c>corrupted / Position out of bounds</c>.
+        /// Externals стриминговой сцены ссылаются на записанное имя <c>levelN.translated.assets</c>; после переименования
+        /// в <c>levelN</c>+<c>levelN.resS</c> смещения в заголовке не сходятся → <c>corrupted / Position out of bounds</c>.
         /// </summary>
         internal static int TryRetargetStreamingExternalsToCanonicalStem(
             AssetsFile assetsFile,
@@ -162,10 +158,7 @@ namespace UnityTextTranslator
                 if (!string.IsNullOrEmpty(path) && File.Exists(path))
                     set.Add(Path.GetFullPath(path));
             }
-            catch
-            {
-                /* skip */
-            }
+            catch { }
         }
 
         private static void EnumerateGlobInto(string directory, string pattern, HashSet<string> set, int max)
@@ -183,10 +176,7 @@ namespace UnityTextTranslator
                         break;
                 }
             }
-            catch
-            {
-                /* ignore access errors */
-            }
+            catch { }
         }
 
         private static IEnumerable<string> CandidateExternalTokens(AssetsFileExternal ext)
@@ -257,10 +247,7 @@ namespace UnityTextTranslator
             yield return Path.Combine(containerDir, leafOrPath);
         }
 
-        /// <summary>
-        /// Временный контейнер рядом с целевым файлом: AssetsTools.NET при записи читает немодифицированные
-        /// байты из открытого исходника — сохранять поверх того же пути нельзя (corrupted / Position out of bounds в игре).
-        /// </summary>
+        /// <summary>Временный контейнер рядом с целью: AssetsTools.NET при записи дочитывает байты из открытого исходника — поверх того же пути нельзя (corrupted в игре).</summary>
         internal static string GetStagedWritePathForInPlaceImport(string finalMainPath)
         {
             if (string.IsNullOrWhiteSpace(finalMainPath))
@@ -280,9 +267,7 @@ namespace UnityTextTranslator
             }
         }
 
-        /// <summary>
-        /// После записи во временный файл и <see cref="CopyCompanionsToOutput"/> заменяет оригинальный контейнер и .resS / .split*.
-        /// </summary>
+        /// <summary>После записи во временный файл и <see cref="CopyCompanionsToOutput"/> заменяет оригинальный контейнер и .resS/.split*.</summary>
         internal static bool TryCommitStagedContainerInPlace(string stagedMainPath, string finalMainPath,
             ICollection<string> messages)
         {
@@ -369,10 +354,9 @@ namespace UnityTextTranslator
         }
 
         /// <summary>
-        /// Перемещает <paramref name="src"/> поверх <paramref name="dest"/>. Бэкап для <see cref="File.Replace(string,string,string)"/>
-        /// держим в той же папке, что и цель: File.Replace требует бэкап на ТОМ ЖЕ томе, иначе бросает
-        /// «Unable to remove the file to be replaced» — частая причина провала подмены, когда игра на другом диске,
-        /// чем %TEMP%. Если File.Replace всё равно падает — откатываемся на delete+move.
+        /// Перемещает <paramref name="src"/> поверх <paramref name="dest"/>. Бэкап для File.Replace держим в папке цели:
+        /// он требует бэкап на ТОМ ЖЕ томе (иначе «Unable to remove the file to be replaced», когда игра не на %TEMP%-диске).
+        /// При сбое — delete+move.
         /// </summary>
         private static bool TryReplaceInPlace(string src, string dest, string dir, ICollection<string> messages)
         {
@@ -428,10 +412,7 @@ namespace UnityTextTranslator
                 if (File.Exists(path))
                     File.Delete(path);
             }
-            catch
-            {
-                /* ignore */
-            }
+            catch { }
         }
 
         public static int CopyCompanionsToOutput(string sourceSerializedContainerPath, string outputSerializedContainerPath,
@@ -498,10 +479,7 @@ namespace UnityTextTranslator
             {
                 preferredResS = Path.GetFullPath(srcMain + ".resS");
             }
-            catch
-            {
-                /* ignore */
-            }
+            catch { }
 
             var planned = new List<(string src, string dst)>();
             foreach (var companionPath in sources)
@@ -567,10 +545,7 @@ namespace UnityTextTranslator
                                     break;
                                 }
                             }
-                            catch
-                            {
-                                /* skip */
-                            }
+                            catch { }
                         }
                     }
 
@@ -641,7 +616,7 @@ namespace UnityTextTranslator
                     "[Sidecar] В папке есть .resS, но они не связаны именем с текущим контейнером. " +
                     "Найдите тот файл, который идёт в паре именно к этому контейнеру Unity, скопируйте в каталог сохранённого результата и переименуйте с тем же базовым именем, что и сохранённый файл.");
             }
-            catch { /* skip */ }
+            catch { }
         }
     }
 }

@@ -10,10 +10,7 @@ using System.Threading;
 
 namespace UnityTextTranslator
 {
-    /// <summary>
-    /// Экспорт объектов из Unity .assets в JSON в том же стиле, что использует UABEA/UABEANext
-    /// (совместимо с <see cref="UabeaJsonAssetImporter"/>).
-    /// </summary>
+    /// <summary>Экспорт объектов из Unity .assets в JSON в стиле UABEA/UABEANext (совместимо с <see cref="UabeaJsonAssetImporter"/>).</summary>
     internal static class UabeaJsonAssetExporter
     {
         public static UabeaExportResult ExportToFolder(string assetsPath, string outputFolder, bool monoBehaviourOnly, string gameDataRootForPreload = null, UabeaJsonFileLayout fileLayout = UabeaJsonFileLayout.UabeaMonoScriptNameFlat, CancellationToken cancellationToken = default)
@@ -80,9 +77,8 @@ namespace UnityTextTranslator
         }
 
         /// <summary>
-        /// Предзагрузка всего каталога <c>Name_Data</c> и экспорт из каждого <c>.assets</c> в общую папку JSON (как массовый дамп в UABEA).
-        /// Раскладку имён задаёт <paramref name="fileLayout"/> (плоско, подпапка на файл или с type id); PathID уникален в рамках одного .assets.
-        /// При <paramref name="skipGlobalGameManagersAssets"/> контейнеры globalgamemanagers*.assets пропускаются (часто не нужны для правки UI).
+        /// Предзагрузка <c>Name_Data</c> и экспорт каждого <c>.assets</c> в общую папку JSON; раскладку имён задаёт <paramref name="fileLayout"/>.
+        /// При <paramref name="skipGlobalGameManagersAssets"/> globalgamemanagers*.assets пропускаются (обычно не нужны для UI).
         /// </summary>
         public static UabeaExportResult ExportEntireGameDataFolder(string gameDataFolder, string outputFolder, bool monoBehaviourOnly, UabeaJsonFileLayout fileLayout = UabeaJsonFileLayout.UabeaMonoScriptNameFlat, bool skipGlobalGameManagersAssets = true, CancellationToken cancellationToken = default)
         {
@@ -232,10 +228,8 @@ namespace UnityTextTranslator
 
                 result.TotalCandidates++;
 
-                // ForceFromCldb имеет смысл ТОЛЬКО если type tree недоступен (rawAssets без type tree).
-                // Для bundle/assets с TypeTreeEnabled == true ForceFromCldb подавляет встроенное дерево
-                // и оставляет только базовые поля MonoBehaviour (m_Script, m_Name) — именно поэтому
-                // из Addressables/Localization бандлов не видно строк даже без галочки MonoBehaviour.
+                // ForceFromCldb только если type tree недоступен: при TypeTreeEnabled он подавляет встроенное дерево и
+                // оставляет лишь базовые поля MonoBehaviour — потому из Addressables/Localization бандлов не видно строк.
                 var perInfoFlags = baseFlags;
                 var fileHasTypeTree = fileInst.file.Metadata.TypeTreeEnabled;
                 if (isMonoBehaviourType && manager.ClassDatabase != null && !fileHasTypeTree)
@@ -337,10 +331,7 @@ namespace UnityTextTranslator
             }
         }
 
-        /// <summary>
-        /// Если AssetsTools вернул MonoBehaviour только с базовыми полями, пробуем самостоятельно
-        /// собрать шаблон через <see cref="AssetsManager.MonoTempGenerator"/> и перечитать значение.
-        /// </summary>
+        /// <summary>MonoBehaviour только с базовыми полями → собираем шаблон через <see cref="AssetsManager.MonoTempGenerator"/> и перечитываем значение.</summary>
         private static bool TryAugmentMonoBehaviourBaseField(
             AssetsManager manager,
             AssetsFileInstance fileInst,
@@ -520,12 +511,8 @@ namespace UnityTextTranslator
         }
 
         /// <summary>
-        /// Читает объект; перебирает комбинации <see cref="AssetReadFlags"/> (в т.ч. ForceFromCldb / SkipMonoBehaviourFields).
-        /// </summary>
-        /// <summary>
-        /// Читает baseField объекта ТОЧНО так же, как экспорт (те же флаги + augmentation MonoBehaviour
-        /// через Mono.Cecil). Критично для импортёра: чтобы набор/порядок строк в дампе совпадал с
-        /// экспортированным JSON и точечная замена строк нашла нужные поля.
+        /// Читает baseField ТОЧНО как экспорт (те же флаги + augmentation через Mono.Cecil). Критично для импортёра:
+        /// набор/порядок строк в дампе должен совпасть с экспортированным JSON, чтобы точечная замена нашла поля.
         /// </summary>
         internal static AssetTypeValueField ReadBaseFieldLikeExport(
             AssetsManager manager, AssetsFileInstance fileInst, AssetFileInfo info, string managedAssembliesFolder)
@@ -553,10 +540,7 @@ namespace UnityTextTranslator
             return baseField;
         }
 
-        /// <summary>
-        /// Дамп текущего (на диске) состояния объекта в JSON-дерево тем же кодом, что и экспорт
-        /// (включая augmentation). Используется импортёром для сравнения «менялся ли текст» и для splice строк.
-        /// </summary>
+        /// <summary>Дамп текущего состояния объекта в JSON тем же кодом, что экспорт (с augmentation) — импортёр сравнивает «менялся ли текст» и делает splice.</summary>
         internal static JToken TryDumpCurrentAssetJson(AssetsManager manager, AssetsFileInstance fileInst, AssetFileInfo info, string managedAssembliesFolder)
         {
             try
@@ -791,10 +775,7 @@ namespace UnityTextTranslator
             throw new NotSupportedException($"ManagedReferencesRegistry версии {registry.version} не поддерживается.");
         }
 
-        /// <summary>
-        /// MonoBehaviour считается «полноценным», если в нём есть поля сверх базовых
-        /// <c>m_GameObject</c>, <c>m_Enabled</c>, <c>m_Script</c>, <c>m_Name</c>.
-        /// </summary>
+        /// <summary>MonoBehaviour «полноценный», если есть поля сверх базовых <c>m_GameObject/m_Enabled/m_Script/m_Name</c>.</summary>
         private static bool HasMonoBehaviourScriptFields(AssetTypeValueField root)
         {
             if (root == null)

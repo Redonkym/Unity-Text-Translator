@@ -116,7 +116,7 @@ namespace UnityTextTranslator
                             Path.DirectorySeparatorChar,
                             Path.AltDirectorySeparatorChar));
                     }
-                    catch { /* ignore */ }
+                    catch { }
 
                     var writeLeaf = Path.GetFileName(stagedWritePath);
                     if (!string.IsNullOrEmpty(canonStem) && !string.IsNullOrEmpty(writeLeaf))
@@ -140,12 +140,8 @@ namespace UnityTextTranslator
 
                 if (writeInPlace)
                 {
-                    // Запись ПОВЕРХ оригинала: парные .resS/.resource НЕ копируем. Импорт меняет только
-                    // MonoBehaviour и никогда не пишет в потоки, поэтому исходные побочники (resources.assets.resS
-                    // и т.п.) уже корректно соответствуют новому контейнеру по имени (текстуры стримятся из них
-                    // по жёсткому имени). Раньше здесь копировался весь resS (для resources.assets это ~1.9 ГБ
-                    // на КАЖДЫЙ импорт) во временный файл, а commit возвращал его поверх идентичного оригинала —
-                    // чистая трата времени и места. Коммит ниже подменит только основной контейнер.
+                    // запись ПОВЕРХ оригинала: парные .resS/.resource НЕ копируем — импорт меняет только MonoBehaviour, а потоки
+                    // уже соответствуют контейнеру по имени. Раньше копировался весь resS (для resources.assets ~1.9 ГБ на КАЖДЫЙ импорт) впустую.
                     result.CompanionResourceFilesCopied = 0;
                     if (result.Messages.Count < 200)
                         result.Messages.Add(
@@ -242,10 +238,8 @@ namespace UnityTextTranslator
                         }
                     }
 
-                    // Защита от порчи не-текстовых объектов: если значения JSON совпадают с тем, что
-                    // уже в ассете (пользователь не менял текст в этом объекте), НЕ перезаписываем.
-                    // Полная пересборка MonoBehaviour по IL2CPP-шаблону может неточно сериализовать
-                    // не-строковые поля (float'ы камер/света в level*), что роняет игру в чёрный экран.
+                    // если JSON совпадает с ассетом (текст не меняли) — НЕ перезаписываем: пересборка MonoBehaviour по
+                    // IL2CPP-шаблону неточно сериализует не-строковые поля (float'ы камер/света → чёрный экран).
                     if (IsJsonUnchangedAgainstAsset(manager, fileInst, info, jsonText, managedAssembliesFolder))
                     {
                         result.Skipped++;
@@ -267,10 +261,8 @@ namespace UnityTextTranslator
                         continue;
                     }
 
-                    // splice не удался (не удалось надёжно сопоставить/найти строки). НЕ пересобираем объект
-                    // по шаблону — это испортило бы не-строковые поля. Безопаснее ПРОПУСТИТЬ: объект остаётся
-                    // оригинальным (Write скопирует его байт-в-байт). Перевод этого объекта не применится,
-                    // но игра не сломается.
+                    // splice не удался: НЕ пересобираем по шаблону (испортит не-строковые поля) — ПРОПУСКАЕМ объект (Write
+                    // скопирует байт-в-байт). Перевод не применится, но игра не сломается.
                     result.Skipped++;
                     if (result.Messages.Count < 200)
                         result.Messages.Add(
@@ -285,10 +277,7 @@ namespace UnityTextTranslator
             }
         }
 
-        /// <summary>
-        /// Импорт JSON для CAB внутри bundle (или любого контейнера): класс-пакет по версии файла, без записи на диск.
-        /// Если подходящих JSON нет — возвращает результат с нулём импортов (ошибка не бросается).
-        /// </summary>
+        /// <summary>Импорт JSON для CAB/контейнера (класс-пакет по версии файла, без записи на диск); нет JSON → 0 импортов без ошибки.</summary>
         internal static UabeaImportResult ImportJsonIntoAssetsFileInstanceFromFolder(
             AssetsManager manager,
             AssetsFileInstance fileInst,
@@ -306,10 +295,7 @@ namespace UnityTextTranslator
             return result;
         }
 
-        /// <summary>
-        /// Как <see cref="UabeaJsonAssetExporter"/> при экспорте: перебор флагов чтения, иначе в CAB с TypeTree
-        /// один вызов <see cref="AssetsManager.GetBaseField(AssetsFileInstance, AssetFileInfo)"/> часто даёт dummy/пустое дерево и патч не меняет файл.
-        /// </summary>
+        /// <summary>Перебор флагов чтения (как экспортёр): иначе в CAB с TypeTree один GetBaseField часто даёт dummy/пустое дерево и патч не меняет файл.</summary>
         internal static AssetTypeValueField TryGetBaseFieldReliable(AssetsManager manager, AssetsFileInstance fileInst, AssetFileInfo info)
         {
             var baseFlags = AssetReadFlags.None;
@@ -330,10 +316,7 @@ namespace UnityTextTranslator
                     if (b != null)
                         return b;
                 }
-                catch
-                {
-                    /* следующая комбинация */
-                }
+                catch { }
 
                 try
                 {
@@ -341,19 +324,15 @@ namespace UnityTextTranslator
                     if (b != null)
                         return b;
                 }
-                catch
-                {
-                    /* следующая комбинация */
-                }
+                catch { }
             }
 
             return null;
         }
 
         /// <summary>
-        /// Записывает правки MonoBehaviour/прочих ассетов в <see cref="AssetFileInfo"/> так, чтобы байты совпадали с тем, что
-        /// уйдёт в <see cref="AssetsFile.Write"/>. Только <see cref="AssetFileInfo.SetNewData(AssetTypeValueField)"/> в части сборок
-        /// IL2CPP не обновляет внутренний буфер — повторный экспорт CAB показывает старый текст.
+        /// Пишет правки в <see cref="AssetFileInfo"/> так, чтобы байты совпали с <see cref="AssetsFile.Write"/>: на части IL2CPP
+        /// один <see cref="AssetFileInfo.SetNewData(AssetTypeValueField)"/> не обновляет буфер (повторный экспорт CAB показывает старый текст).
         /// </summary>
         private static void SetNewDataFromBaseFieldForWrite(AssetFileInfo info, AssetTypeValueField baseField)
         {
@@ -368,10 +347,7 @@ namespace UnityTextTranslator
                     return;
                 }
             }
-            catch
-            {
-                /* SetNewData(AssetTypeValueField) */
-            }
+            catch { }
 
             info.SetNewData(baseField);
         }
@@ -397,10 +373,7 @@ namespace UnityTextTranslator
             }
         }
 
-        /// <summary>
-        /// Ищет сериализованные <c>Locale</c> (Unity Localization) по <c>m_Identifier.m_Code</c> или корневому <c>m_Code</c>,
-        /// снимает типичные флаги «выключено / скрыто».
-        /// </summary>
+        /// <summary>Ищет <c>Locale</c> (Unity Localization) по <c>m_Identifier.m_Code</c>/<c>m_Code</c> и снимает флаги «выключено/скрыто».</summary>
         internal static void TryPatchLocalizationLocaleAssetsInFile(
             AssetsManager manager,
             AssetsFileInstance fileInst,
@@ -471,10 +444,7 @@ namespace UnityTextTranslator
                         if (string.Equals(c.AsString, code, StringComparison.OrdinalIgnoreCase))
                             return true;
                     }
-                    catch
-                    {
-                        /* ignore */
-                    }
+                    catch { }
                 }
             }
 
@@ -550,10 +520,7 @@ namespace UnityTextTranslator
                     if (result != null && result.Messages.Count < 120)
                         result.Messages.Add($"{fileLabel}: [Locale] {ch.FieldName}: {cur} → {desired.Value}.");
                 }
-                catch
-                {
-                    /* ignore */
-                }
+                catch { }
             }
 
             var meta = FieldICase(root, "m_Metadata");
@@ -587,10 +554,7 @@ namespace UnityTextTranslator
                         if (result != null && result.Messages.Count < 120)
                             result.Messages.Add($"{fileLabel}: [Locale] m_Metadata.{ch.FieldName}: {cur} → {want}.");
                     }
-                    catch
-                    {
-                        /* ignore */
-                    }
+                    catch { }
                 }
             }
 
@@ -672,9 +636,7 @@ namespace UnityTextTranslator
             }
         }
 
-        /// <summary>
-        /// Полная пересборка <c>MonoBehaviour</c> из JSON при наличии <c>m_TableData</c> (Unity Localization StringTable).
-        /// </summary>
+        /// <summary>Полная пересборка <c>MonoBehaviour</c> из JSON при наличии <c>m_TableData</c> (Unity Localization StringTable).</summary>
         private static bool TryImportStringTableViaFullTemplate(
             AssetsManager manager,
             AssetsFileInstance fileInst,
@@ -723,11 +685,8 @@ namespace UnityTextTranslator
             }
         }
 
-        /// <summary>
-        /// Надёжный импорт для Unity Localization <c>StringTable</c>: через <c>GetBaseField</c> меняются только строки
-        /// в <c>m_TableData</c> (поля вида <c>m_Localized</c> или вложенного <c>LocalizedString</c>), без пересборки всего MonoBehaviour.
-        /// </summary>
-        /// <returns><c>true</c>, если патч применён (дальнейший импорт этого PathID не нужен).</returns>
+        /// <summary>Надёжный импорт StringTable: через <c>GetBaseField</c> меняются только строки в <c>m_TableData</c> (<c>m_Localized</c>/вложенный <c>LocalizedString</c>), без пересборки MonoBehaviour.</summary>
+        /// <returns><c>true</c>, если патч применён (дальнейший импорт PathID не нужен).</returns>
         private static bool TryPatchStringTableDirectly(
             AssetsManager manager,
             AssetsFileInstance fileInst,
@@ -815,10 +774,7 @@ namespace UnityTextTranslator
                 {
                     liveIds.Add(idField.AsLong);
                 }
-                catch
-                {
-                    /* ignore */
-                }
+                catch { }
             }
 
             var matchedIds = 0;
@@ -1055,7 +1011,7 @@ namespace UnityTextTranslator
                 return;
             string before = null;
             try { before = codeField.AsString; }
-            catch { /* ignore */ }
+            catch { }
             var code = localeCode.Trim();
             if (string.Equals(before, code, StringComparison.Ordinal))
                 return;
@@ -1188,10 +1144,7 @@ namespace UnityTextTranslator
                 {
                     verifyTree = TryGetBaseFieldReliable(manager, fileInst, info);
                 }
-                catch
-                {
-                    /* ignore */
-                }
+                catch { }
 
                 var codeAfter = TryReadLocaleIdCodeFromBaseField(verifyTree);
                 result.Messages.Add(
@@ -1400,10 +1353,7 @@ namespace UnityTextTranslator
                         locField.AsString = newValue;
                         return true;
                     }
-                    catch
-                    {
-                        /* shallow nested */
-                    }
+                    catch { }
                 }
 
                 foreach (var subName in new[] { "m_LocalizedString", "localizedString", "m_Value", "value" })
@@ -1416,10 +1366,7 @@ namespace UnityTextTranslator
                         sub.AsString = newValue;
                         return true;
                     }
-                    catch
-                    {
-                        /* next */
-                    }
+                    catch { }
                 }
 
                 if (TryForceWriteLocalizedStringDeepMatchingReadOrder(locField, newValue, 0))
@@ -1436,10 +1383,7 @@ namespace UnityTextTranslator
                     sub.AsString = newValue;
                     return true;
                 }
-                catch
-                {
-                    /* next */
-                }
+                catch { }
             }
 
             return false;
@@ -1461,10 +1405,7 @@ namespace UnityTextTranslator
                     sub.AsString = newValue;
                     return true;
                 }
-                catch
-                {
-                    /* next name */
-                }
+                catch { }
             }
 
             foreach (var child in node.Children)
@@ -1786,10 +1727,8 @@ namespace UnityTextTranslator
         // ──────────────────────────────────────────────────────────────────────
 
         /// <summary>
-        /// <c>true</c>, если набор строковых значений в JSON совпадает с текущим состоянием объекта в ассете
-        /// (пользователь не менял ни одной строки). Сравниваются ТОЛЬКО строки — перевод меняет именно их;
-        /// числовые поля игнорируются, чтобы различия сериализации (read-флаги, IL2CPP-шаблон) не давали
-        /// ложного «изменилось». При сомнении (не смогли прочитать) возвращаем <c>false</c> → импортируем как раньше.
+        /// <c>true</c>, если строки JSON совпадают с состоянием объекта (текст не меняли). Сравниваются ТОЛЬКО строки —
+        /// числовые поля игнорируются (различия сериализации не дают ложного «изменилось»). При сомнении → <c>false</c>.
         /// </summary>
         private static bool IsJsonUnchangedAgainstAsset(
             AssetsManager manager,
@@ -1849,14 +1788,9 @@ namespace UnityTextTranslator
         }
 
         /// <summary>
-        /// Строит новые байты объекта, заменяя ТОЛЬКО строки, которые пользователь изменил, прямо в
-        /// оригинальных байтах (длина-префикс + UTF8 + выравнивание до 4). Все не-строковые поля
-        /// (float/int/ссылки) остаются байт-в-байт как в оригинале — поэтому камеры/свет не ломаются.
-        ///
-        /// Старые значения строк берём из честного чтения экспортёром (<see cref="UabeaJsonAssetExporter"/>
-        /// читает ассет верно, ломается только запись по шаблону), их позиции находим поиском в сырых байтах.
-        /// Возвращает <c>null</c>, если хоть одну изменённую строку не удалось надёжно найти (тогда вызывающий
-        /// код делает fallback на пересборку по шаблону).
+        /// Заменяет ТОЛЬКО изменённые строки прямо в оригинальных байтах (len-префикс + UTF8 + align 4); не-строковые поля
+        /// остаются байт-в-байт → камеры/свет не ломаются. Старые значения читает экспортёр, позиции ищет в сырых байтах.
+        /// <c>null</c>, если хоть одну строку не нашли надёжно (тогда вызывающий код пробует пересборку по шаблону).
         /// </summary>
         private static byte[] TryBuildStringSplicedRawBytes(
             AssetsManager manager,
@@ -1957,10 +1891,7 @@ namespace UnityTextTranslator
             }
         }
 
-        /// <summary>
-        /// Кодирует строку как в сериализации Unity: int32-длина (с учётом порядка байт) + UTF8.
-        /// При <paramref name="withAlignPad"/> добавляет нули до кратности 4 (выравнивание после строки).
-        /// </summary>
+        /// <summary>Кодирует строку как Unity: int32-длина (с порядком байт) + UTF8; при <paramref name="withAlignPad"/> — нули до кратности 4.</summary>
         private static byte[] EncodeUnityString(string s, bool bigEndian, bool withAlignPad, out int utf8Len)
         {
             var utf8 = Encoding.UTF8.GetBytes(s ?? string.Empty);

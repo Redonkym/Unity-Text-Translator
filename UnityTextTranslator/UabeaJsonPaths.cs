@@ -10,9 +10,7 @@ using System.Text.RegularExpressions;
 
 namespace UnityTextTranslator
 {
-    /// <summary>
-    /// Варианты раскладки файлов при экспорте/импорте UABEA-совместимого JSON.
-    /// </summary>
+    /// <summary>Варианты раскладки файлов при экспорте/импорте UABEA-совместимого JSON.</summary>
     internal enum UabeaJsonFileLayout
     {
         /// <summary>Как UABEAvalonia: ИмяMonoScript-контейнер-PathID.json (например Button-level0-2291).</summary>
@@ -85,9 +83,7 @@ namespace UnityTextTranslator
             }
         }
 
-        /// <summary>
-        /// PathID из имени файла (последняя группа цифр после разделителя или целиком имя «123»).
-        /// </summary>
+        /// <summary>PathID из имени файла (последняя группа цифр после разделителя или целиком имя «123»).</summary>
         internal static bool TryParsePathIdFromFilePath(string filePath, out long pathId)
         {
             pathId = 0;
@@ -110,9 +106,7 @@ namespace UnityTextTranslator
             return long.TryParse(match.Groups[1].Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out pathId);
         }
 
-        /// <summary>
-        /// Ищет JSON для указанного .assets: рекурсивно; плоские «basename-*.json» на любой глубине или файл под папкой с именем контейнера (в т.ч. вложенные подпапки).
-        /// </summary>
+        /// <summary>Ищет JSON для .assets рекурсивно: «basename-*.json» на любой глубине или файл под папкой с именем контейнера.</summary>
         internal static List<(string Path, long PathId)> DiscoverImportJsonFiles(string jsonFolder, string assetsPath)
         {
             var baseSafe = SafeFileNamePart(Path.GetFileNameWithoutExtension(assetsPath)).TrimEnd('-', '_', ' ');
@@ -251,9 +245,7 @@ namespace UnityTextTranslator
             return ordered;
         }
 
-        /// <summary>
-        /// Совпадение с дампами UABEA: «container-PathID», «ScriptName-container-PathID», или подпапка container.
-        /// </summary>
+        /// <summary>Совпадение с дампами UABEA: «container-PathID», «ScriptName-container-PathID» или подпапка container.</summary>
         internal static bool JsonFileBelongsToContainer(string jsonRoot, string jsonFilePath, string containerBaseSafe)
         {
             var fn = Path.GetFileNameWithoutExtension(jsonFilePath);
@@ -273,9 +265,7 @@ namespace UnityTextTranslator
             return IsUnderNamedAssetsFolder(jsonRoot, jsonFilePath, containerBaseSafe);
         }
 
-        /// <summary>
-        /// На пути от файла к корню JSON-папки есть каталог с именем контейнера (например ...\sharedassets18\2664.json или ...\sharedassets18\grp\2664.json).
-        /// </summary>
+        /// <summary>На пути от файла к корню JSON-папки есть каталог с именем контейнера (...\sharedassets18\2664.json).</summary>
         private static bool IsUnderNamedAssetsFolder(string jsonRoot, string jsonFilePath, string baseSafe)
         {
             try
@@ -295,10 +285,7 @@ namespace UnityTextTranslator
                     dir = Path.GetDirectoryName(dir);
                 }
             }
-            catch
-            {
-                // игнорируем некорректные пути
-            }
+            catch { }
 
             return false;
         }

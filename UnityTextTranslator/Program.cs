@@ -12,9 +12,7 @@ namespace UnityTextTranslator
 
         private static Form1 _mainForm;
 
-        /// <summary>
-        /// Главная точка входа для приложения.
-        /// </summary>
+        /// <summary>Главная точка входа.</summary>
         [STAThread]
         static void Main()
         {
@@ -34,13 +32,9 @@ namespace UnityTextTranslator
         }
 
         /// <summary>
-        /// Глобальная «сеть» для необработанных исключений. В WinForms исключения из async void-обработчиков
-        /// (а их в проекте 17 — выбор папки, импорт/экспорт .assets, пакетный перевод и т.п.) всплывают на
-        /// UI-поток как <see cref="Application.ThreadException"/>; раньше любое такое исключение роняло
-        /// приложение В ОБХОД автосейва и диалога «сохранить перед выходом». Теперь мы их логируем, пытаемся
-        /// аварийно записать несохранённые переводы и НЕ закрываем приложение — пользователь продолжает работу.
-        /// Фоновые/фатальные ловит <see cref="AppDomain.UnhandledException"/>: процесс всё равно завершится, но
-        /// мы успеваем залогировать и сохранить.
+        /// Исключения из async void-обработчиков (выбор папки, импорт/экспорт, пакетный перевод) всплывают как
+        /// <see cref="Application.ThreadException"/> и раньше роняли приложение в обход автосейва; теперь логируем,
+        /// аварийно сохраняем и НЕ закрываемся. Фатальные ловит <see cref="AppDomain.UnhandledException"/>.
         /// </summary>
         private static void InstallGlobalExceptionHandlers()
         {
@@ -112,9 +106,7 @@ namespace UnityTextTranslator
             File.AppendAllText(path, text);
         }
 
-        /// <summary>
-        /// То же, что в App.config (runtime/AppContext), чтобы Release-сборка могла обходиться без .exe.config рядом с файлом.
-        /// </summary>
+        /// <summary>То же, что App.config (runtime/AppContext) — чтобы Release обходился без .exe.config рядом.</summary>
         private static void ApplyEmbeddedRuntimeConfiguration()
         {
             try
@@ -128,9 +120,7 @@ namespace UnityTextTranslator
             }
         }
 
-        /// <summary>
-        /// HTTPS к OpenRouter/LibreTranslate: TLS 1.2 и системный прокси (корпоративная сеть).
-        /// </summary>
+        /// <summary>HTTPS к OpenRouter/LibreTranslate: TLS 1.2 и системный прокси (корпоративная сеть).</summary>
         private static void ConfigureHttpsConnectivityDefaults()
         {
             try
@@ -144,9 +134,8 @@ namespace UnityTextTranslator
         }
 
         /// <summary>
-        /// Mono.Cecil подтягивает Mono.Cecil.Rocks при разборе типов. Одной копии dll рядом с exe бывает мало
-        /// (shadow copy VS, пустой Location, Fusion). Дублируем загрузку: ресурс в exe → Assembly.Load(bytes),
-        /// затем файл рядом с процессом и <see cref="AppDomain.AssemblyResolve"/>.
+        /// Mono.Cecil тянет Mono.Cecil.Rocks при разборе типов; одной dll рядом с exe бывает мало (shadow copy VS, пустой
+        /// Location). Дублируем: встроенный ресурс → Assembly.Load(bytes), файл рядом, <see cref="AppDomain.AssemblyResolve"/>.
         /// </summary>
         private static void EnsureMonoCecilSatellitesLoaded()
         {
@@ -211,10 +200,7 @@ namespace UnityTextTranslator
                     }
                 }
             }
-            catch
-            {
-                // ниже — попытка с диска
-            }
+            catch { }
 
             try
             {

@@ -19,10 +19,7 @@ namespace UnityTextTranslator
         private const string EmbeddedCompanionLogicalName = "AddressablesCatalogCrcZero.exe";
 
         /// <summary>Обнуляет CRC в catalog.json|.bin рядом с указанным bundle (Addressables).</summary>
-        /// <param name="patchedBundleFullPath">
-        /// Реальный путь к .bundle в каталоге игры (например …\StreamingAssets\aa\…\file.bundle).
-        /// Не передавайте временный файл в %TEMP% — каталог не будет найден.
-        /// </param>
+        /// <param name="patchedBundleFullPath">Реальный путь к .bundle в каталоге игры (НЕ временный в %TEMP% — каталог не найдётся).</param>
         internal static void TryPatchCatalogsNearBundle(string patchedBundleFullPath, ICollection<string> messages)
         {
             var exe = ResolveCompanionExePath();
@@ -114,10 +111,7 @@ namespace UnityTextTranslator
                 if (File.Exists(cand))
                     return cand;
             }
-            catch
-            {
-                /* ignore */
-            }
+            catch { }
 
             try
             {
@@ -133,19 +127,13 @@ namespace UnityTextTranslator
                     }
                 }
             }
-            catch
-            {
-                /* ignore */
-            }
+            catch { }
 
             try
             {
                 return MaterializeEmbeddedCompanionExe();
             }
-            catch
-            {
-                /* ignore */
-            }
+            catch { }
 
             return null;
         }
@@ -194,10 +182,7 @@ namespace UnityTextTranslator
                         return path;
                 }
             }
-            catch
-            {
-                /* replace */
-            }
+            catch { }
 
             var tmp = path + ".tmp";
             File.WriteAllBytes(tmp, payload);
@@ -217,10 +202,7 @@ namespace UnityTextTranslator
                     if (File.Exists(tmp))
                         File.Delete(tmp);
                 }
-                catch
-                {
-                    /* ignore */
-                }
+                catch { }
             }
 
             return path;

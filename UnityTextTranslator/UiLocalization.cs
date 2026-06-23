@@ -7,13 +7,9 @@ using System.Linq;
 namespace UnityTextTranslator
 {
     /// <summary>
-    /// Переводы интерфейса для ДОПОЛНИТЕЛЬНЫХ языков (всё, кроме en/ru — те зашиты в <c>L(en, ru)</c>).
-    /// Хранятся ОТДЕЛЬНО от кода, чтобы добавление UI-элементов не требовало инлайн-перевода в каждый язык:
-    ///   1. встроенный <c>ui-languages.json</c> (EmbeddedResource) — едет в exe, работает «из коробки»;
-    ///   2. опциональный внешний <c>%AppData%\UnityTextTranslator\ui-languages.json</c> — правится БЕЗ пересборки,
-    ///      перекрывает/дополняет встроенный (ключ-в-ключ).
-    /// Ключ перевода — английская строка из <c>L(...)</c>. Нет перевода → null → <c>L()</c> откатывается на English.
-    /// Поэтому непереведённые/новые элементы просто показываются по-английски и «не мешают общей работе».
+    /// Переводы интерфейса для ДОП. языков (кроме en/ru — те в <c>L(en, ru)</c>). Хранятся отдельно от кода: встроенный
+    /// <c>ui-languages.json</c> (EmbeddedResource) + внешний оверрайд <c>%AppData%\…\ui-languages.json</c> (правится без пересборки).
+    /// Ключ — английская строка из <c>L(...)</c>; нет перевода → null → <c>L()</c> откатывается на English (новые элементы просто английские).
     /// </summary>
     internal static class UiLocalization
     {
@@ -43,10 +39,7 @@ namespace UnityTextTranslator
             "UnityTextTranslator",
             FileName);
 
-        /// <summary>
-        /// Перевод английской строки <paramref name="english"/> на язык интерфейса <paramref name="langCode"/>.
-        /// null, если язык/строка неизвестны — вызывающий код (L) показывает English.
-        /// </summary>
+        /// <summary>Перевод <paramref name="english"/> на язык <paramref name="langCode"/>; null если неизвестно (L покажет English).</summary>
         public static string Translate(string langCode, string english)
         {
             if (string.IsNullOrEmpty(langCode) || string.IsNullOrEmpty(english))

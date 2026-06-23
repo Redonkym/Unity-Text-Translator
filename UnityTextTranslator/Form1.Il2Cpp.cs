@@ -6,10 +6,7 @@ using System.Windows.Forms;
 
 namespace UnityTextTranslator
 {
-    /// <summary>
-    /// IL2CPP: генерация DummyDll (Il2CppDumper) и подстановка её как «Managed», чтобы у игр с
-    /// вырезанным type tree читались поля MonoBehaviour (диалоги/UI), а не только базовые.
-    /// </summary>
+    /// <summary>IL2CPP: генерация DummyDll (Il2CppDumper) как «Managed» — чтобы у игр с вырезанным type tree читались поля MonoBehaviour (диалоги/UI).</summary>
     public partial class Form1
     {
         /// <summary>Если для текущей игры уже сгенерирована DummyDll — подключить её к разбору MonoBehaviour.</summary>
@@ -24,7 +21,7 @@ namespace UnityTextTranslator
                 if (Directory.Exists(dummy) && Directory.GetFiles(dummy, "*.dll").Length > 0)
                     UnityAssetsGameFolderHelper.ManagedFolderOverride = dummy;
             }
-            catch { /* не критично */ }
+            catch { }
         }
 
         private async void BtnIl2CppDummy_Click(object sender, EventArgs e)

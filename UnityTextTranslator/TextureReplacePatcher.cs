@@ -9,10 +9,8 @@ using System.Linq;
 namespace UnityTextTranslator
 {
     /// <summary>
-    /// Поиск, экспорт и замена <c>Texture2D</c> (фоны/картинки с запечённым текстом) в Unity-контейнерах.
-    /// Декод любого формата (BCn/DXT/ETC/ASTC/RGBA…) — через <see cref="TextureFile"/> (AssetsTools.NET.Texture);
-    /// обратно пишем всегда <b>RGBA32</b> inline (managed-кодек не нужен), обнуляя <c>m_StreamData</c>, и
-    /// перезаписываем контейнер целиком (объект растёт) — как grow-путь шрифтового патчера.
+    /// Поиск, экспорт и замена <c>Texture2D</c> в Unity-контейнерах. Декод любого формата через <see cref="TextureFile"/>;
+    /// обратно всегда <b>RGBA32</b> inline (обнуляя <c>m_StreamData</c>) с полной перезаписью контейнера (объект растёт).
     /// </summary>
     internal static class TextureReplacePatcher
     {
@@ -305,10 +303,7 @@ namespace UnityTextTranslator
             "depth", "emiss", "height", "_d", "detail"
         };
 
-        /// <summary>
-        /// Быстрая эвристика «вероятно фон/баннер/титул с текстом» (без чтения пикселей):
-        /// крупная по площади/стороне и не похожа по имени на служебную карту материала.
-        /// </summary>
+        /// <summary>Эвристика «вероятно фон/баннер с текстом» без чтения пикселей: крупная по площади/стороне и не служебная карта по имени.</summary>
         internal static bool IsLikelyTextCandidate(string name, int width, int height)
         {
             var area = (long)Math.Max(0, width) * Math.Max(0, height);
@@ -409,10 +404,7 @@ namespace UnityTextTranslator
 
         // ---------- Замена из PNG (.assets) ----------
 
-        /// <summary>
-        /// Кодирует PNG в RGBA32 и заменяет эту текстуру в .assets inline (обнуляя m_StreamData), пишет в <paramref name="outputPath"/>.
-        /// Объект растёт → полная перезапись файла.
-        /// </summary>
+        /// <summary>PNG → RGBA32, заменяет текстуру в .assets inline (обнуляя m_StreamData) в <paramref name="outputPath"/>; объект растёт → полная перезапись.</summary>
         internal static void ReplaceAssetsTextureFromPng(
             string classDataPath, string assetsPath, long pathId, string pngPath, string outputPath, ICollection<string> log)
         {

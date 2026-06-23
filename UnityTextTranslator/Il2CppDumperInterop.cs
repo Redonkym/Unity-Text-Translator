@@ -12,10 +12,8 @@ using System.Threading.Tasks;
 namespace UnityTextTranslator
 {
     /// <summary>
-    /// Обёртка над <see href="https://github.com/Perfare/Il2CppDumper">Il2CppDumper</see>: по
-    /// <c>GameAssembly.dll</c> + <c>global-metadata.dat</c> генерирует папку <c>DummyDll</c> (заглушки типов).
-    /// Их подставляем как «Managed», и тогда Mono.Cecil восстанавливает поля MonoBehaviour у IL2CPP-игр
-    /// с вырезанным type tree (иначе виден только базовый m_GameObject/m_Enabled/m_Script/m_Name).
+    /// Обёртка над <see href="https://github.com/Perfare/Il2CppDumper">Il2CppDumper</see>: из <c>GameAssembly.dll</c>+<c>global-metadata.dat</c>
+    /// генерит <c>DummyDll</c> (заглушки типов) как «Managed» → Mono.Cecil восстанавливает поля MonoBehaviour у IL2CPP-игр с вырезанным type tree.
     /// </summary>
     internal static class Il2CppDumperInterop
     {
@@ -56,7 +54,7 @@ namespace UnityTextTranslator
                     if (File.Exists(ga)) return ga;
                 }
             }
-            catch { /* ignore */ }
+            catch { }
             return null;
         }
 
@@ -112,7 +110,7 @@ namespace UnityTextTranslator
                 var bytes = await Http.GetByteArrayAsync(url).ConfigureAwait(false);
                 File.WriteAllBytes(zip, bytes);
                 ExtractZipFlat(zip, ToolsDir);
-                try { File.Delete(zip); } catch { /* ignore */ }
+                try { File.Delete(zip); } catch { }
             }
             catch (Exception ex)
             {
@@ -151,7 +149,7 @@ namespace UnityTextTranslator
                 t = Regex.Replace(t, "\"RequireAnyKey\"\\s*:\\s*true", "\"RequireAnyKey\": false");
                 File.WriteAllText(cfg, t);
             }
-            catch { /* ignore */ }
+            catch { }
         }
 
         /// <summary>Запускает Il2CppDumper и возвращает путь к созданной папке DummyDll.</summary>

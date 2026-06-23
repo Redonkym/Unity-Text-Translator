@@ -5,9 +5,7 @@ namespace UnityTextTranslator
 {
     internal static class MonoBehaviourScriptResolver
     {
-        /// <summary>
-        /// Короткое имя класса из MonoScript (как в именах дампов UABEAvalonia: Button, CanvasScaler, …).
-        /// </summary>
+        /// <summary>Короткое имя класса из MonoScript (как в дампах UABEAvalonia: Button, CanvasScaler, …).</summary>
         internal static string TryGetMonoScriptShortClassName(
             AssetsManager manager,
             AssetsFileInstance fromFile,

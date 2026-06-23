@@ -4,14 +4,10 @@ using System;
 
 namespace UnityTextTranslator
 {
-    /// <summary>
-    /// Вспомогательные сведения об ассетах без UABEA GUI.
-    /// </summary>
+    /// <summary>Вспомогательные сведения об ассетах без UABEA GUI.</summary>
     internal static class AssetHelper
     {
-        /// <summary>
-        /// Имя встроенного типа Unity по class ID (<see cref="AssetClassID"/>) или числовой TypeId.
-        /// </summary>
+        /// <summary>Имя встроенного типа Unity по class ID (<see cref="AssetClassID"/>) или числовой TypeId.</summary>
         internal static string GetTypeName(AssetsFile file, AssetFileInfo info)
         {
             if (file == null || info == null)

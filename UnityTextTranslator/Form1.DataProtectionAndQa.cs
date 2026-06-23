@@ -10,8 +10,7 @@ using Newtonsoft.Json.Linq;
 
 namespace UnityTextTranslator
 {
-    // Защита данных (флаг несохранённого, предупреждение при выходе, автосохранение)
-    // + QA-проверка строк (плейсхолдеры/теги/переносы/непереведённое).
+    // Защита данных (флаг несохранённого, предупреждение при выходе, автосейв) + QA-проверка строк (плейсхолдеры/теги/переносы/непереведённое).
     partial class Form1
     {
         private bool _jsonDirty;
@@ -64,11 +63,8 @@ namespace UnityTextTranslator
         }
 
         /// <summary>
-        /// Аварийное сохранение «грязных» переводов при НЕОБРАБОТАННОМ исключении (зовётся из глобального
-        /// обработчика в <see cref="Program"/>). Best-effort и полностью в try/catch, чтобы не уронить
-        /// обработчик повторно. Грид НЕ трогаем (UI может быть в нестабильном состоянии) — пишем прямо из
-        /// <see cref="translationItems"/> (закоммиченные правки ячеек туда уже перенесены через CellEndEdit).
-        /// Возвращает число записанных строк, 0 — сохранять нечего, -1 — сбой записи.
+        /// Аварийное сохранение «грязных» переводов при необработанном исключении (из глобального обработчика в <see cref="Program"/>).
+        /// Грид НЕ трогаем (UI может быть нестабилен) — пишем прямо из <see cref="translationItems"/>. Возвращает число строк; 0 — нечего, -1 — сбой.
         /// </summary>
         internal int TryEmergencySaveDirtyTranslations()
         {
@@ -166,8 +162,7 @@ namespace UnityTextTranslator
 
         private sealed class QaIssue
         {
-            /// <summary>Ссылка на проблемный элемент (НЕ индекс): переход к строке находит её через row.Tag,
-            /// поэтому остаётся точным даже если таблицу пересортировали между генерацией отчёта и кликом.</summary>
+            /// <summary>Ссылка на элемент (НЕ индекс): переход находит строку через row.Tag → устойчиво к пересортировке между отчётом и кликом.</summary>
             public TranslationItem Item;
             public string File;
             public string Kind;
@@ -368,7 +363,7 @@ namespace UnityTextTranslator
                 dgv.FirstDisplayedScrollingRowIndex = Math.Max(0, index - 3);
                 dgv.Focus();
             }
-            catch { /* ignore */ }
+            catch { }
         }
     }
 }

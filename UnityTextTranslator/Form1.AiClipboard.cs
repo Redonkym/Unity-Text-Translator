@@ -48,8 +48,7 @@ namespace UnityTextTranslator
                     .ToList();
             }
 
-            // indices — индексы СТРОК ГРИДА; элемент берём из строки через Tag (RowItemAt), а не translationItems[idx],
-            // чтобы копировалась ровно та пара «Оригинал→Перевод», что видна в строке (без сдвига при пересортировке).
+            // indices — индексы строк грида; элемент через Tag (RowItemAt), не translationItems[idx] — копируется та пара, что видна (без сдвига).
             CopyItemsForAi(
                 indices.Select(RowItemAt).Where(it => it != null),
                 dgv.SelectedRows.Count > 0
@@ -77,8 +76,7 @@ namespace UnityTextTranslator
                 return;
             }
 
-            // Инструкция монолингвальна (на языке интерфейса) и называет выбранные языки перевода —
-            // см. BuildAiCopyInstructionLines. Дубль RU+EN убран по запросу пользователя.
+            // инструкция монолингвальна (язык UI), называет выбранные языки — см. BuildAiCopyInstructionLines
             var srcName = LanguageDisplayToName(sourceLanguageDisplay);
             var tgtName = LanguageDisplayToName(targetLanguageDisplay);
             var lines = BuildAiCopyInstructionLines(srcName, tgtName);
@@ -108,10 +106,8 @@ namespace UnityTextTranslator
         }
 
         /// <summary>
-        /// Инструкция для языковой модели в буфере обмена. МОНОЛИНГВАЛЬНА — целиком на языке интерфейса
-        /// (<see cref="UiIsRussian"/>), без прежнего дубля RU+EN; явно называет выбранные языки перевода
-        /// «{src} → {tgt}». Последний элемент списка — строка-заголовок TSV (на том же языке).
-        /// Заголовок распознаётся при вставке на обоих языках (см. <see cref="IsAiCopyFileHeaderCell"/>).
+        /// Инструкция для модели в буфере: монолингвальна (язык UI, <see cref="UiIsRussian"/>), называет языки «{src}→{tgt}».
+        /// Последний элемент — заголовок TSV; при вставке распознаётся на обоих языках (<see cref="IsAiCopyFileHeaderCell"/>).
         /// </summary>
         private List<string> BuildAiCopyInstructionLines(string srcName, string tgtName)
         {
@@ -362,8 +358,7 @@ namespace UnityTextTranslator
                             true);
                 }
 
-                // Ответ ИИ с колонками через ПРОБЕЛЫ (без табов) + шапка: структурный TSV не сработал.
-                // Сопоставляем по префиксу «Файл Путь Оригинал» с известными строками — без сдвига и без шапки.
+                // ответ ИИ через ПРОБЕЛЫ (TSV не сработал): мапим по префиксу «Файл Путь Оригинал» — без сдвига и шапки
                 var byPrefix = TryPasteAiByRowPrefix(clipboardText, indices);
                 if (byPrefix.AppliedCount > 0)
                 {
@@ -427,8 +422,7 @@ namespace UnityTextTranslator
                 return;
             }
 
-            // Нет выделения: пробуем сопоставить по префиксу «Файл/Путь/Оригинал» над ВСЕМИ строками
-            // (на случай ответа ИИ с пробелами вместо табов), затем — по ключу через PasteAiTableByMatch.
+            // нет выделения: сначала по префиксу «Файл/Путь/Оригинал» над всеми строками (ответ с пробелами), затем по ключу через PasteAiTableByMatch
             var allRowIndices = Enumerable.Range(0, translationItems.Count).ToList();
             var byPrefixAll = TryPasteAiByRowPrefix(clipboardText, allRowIndices);
             if (byPrefixAll.AppliedCount > 0)
@@ -471,10 +465,8 @@ namespace UnityTextTranslator
         }
 
         /// <summary>
-        /// ИИ часто отвечает Markdown-таблицей (колонки разделены «|»), а весь парсер вставки
-        /// ждёт TSV (табы). Преобразуем такие строки в TSV: срезаем крайние «|», делим по «|»
-        /// (кроме экранированных «\|»), пропускаем строку-разделитель «|---|---|». Строки, где
-        /// «|» нет, остаются как есть — обычный TSV/нумерованный список не ломается.
+        /// ИИ часто отвечает Markdown-таблицей («|»), а парсер ждёт TSV: срезаем крайние «|», делим по неэкранированным «|»,
+        /// выкидываем разделитель «|---|». Строки без «|» не трогаем (обычный TSV/список не ломается).
         /// </summary>
         private static string NormalizeMarkdownTableToTsv(string text)
         {
@@ -628,11 +620,8 @@ namespace UnityTextTranslator
             IReadOnlyList<AiPasteTsvRow> tsvRows,
             IReadOnlyList<int> selectedIndicesSorted)
         {
-            // Сопоставляем переводы НЕ по позиции, а по ключу «Файл/Путь/Оригинал». Внешний ИИ часто
-            // меняет порядок строк, склеивает многострочные ответы, теряет или добавляет строки — при
-            // позиционной привязке это сдвигало весь хвост, и перевод уходил в ЧУЖУЮ строку (Select →
-            // дисклеймер 18+ и т.п.). Ключевое сопоставление к таким искажениям ответа устойчиво:
-            // пропавшая строка остаётся непереведённой, а не сдвигает остальные.
+            // сопоставляем по ключу «Файл/Путь/Оригинал», НЕ по позиции: ИИ меняет порядок/склеивает/теряет строки, и
+            // позиционная привязка сдвигала хвост (перевод уходил в чужую строку). По ключу пропавшая строка не сдвигает остальные.
             var fullKeyToIdx = new Dictionary<string, List<int>>(StringComparer.Ordinal);
             var pathOrigToIdx = new Dictionary<string, List<int>>(StringComparer.Ordinal);
             for (var i = 0; i < tsvRows.Count; i++)
@@ -680,11 +669,8 @@ namespace UnityTextTranslator
         }
 
         /// <summary>
-        /// Вставка ответа ИИ, когда колонки разделены ПРОБЕЛАМИ, а не табами (структурный TSV-парсер их не
-        /// берёт, а делить по пробелу нельзя — пробелы есть и в «Оригинале», и в «Переводе»: «Game Over»,
-        /// «Lust Madness»). Каждую строку ответа сопоставляем с ИЗВЕСТНОЙ строкой таблицы по префиксу
-        /// «Файл Путь Оригинал»; остаток строки — перевод. Шапка и лишние строки ответа не находят совпадения
-        /// и пропускаются. Привязка по содержимому, не по позиции — сдвига нет.
+        /// Вставка, когда колонки через ПРОБЕЛЫ, не табы (делить по пробелу нельзя — пробелы и в «Оригинале», и в «Переводе»).
+        /// Каждую строку ответа мапим к известной строке по префиксу «Файл Путь Оригинал», остаток — перевод. По содержимому, не позиции.
         /// </summary>
         private PasteTsvIntoSelectionOutcome TryPasteAiByRowPrefix(string clipboardText, IReadOnlyList<int> targetIndices)
         {
@@ -745,9 +731,8 @@ namespace UnityTextTranslator
         }
 
         /// <summary>
-        /// Если строка начинается с перечисленных полей по порядку (между ними — любые пробелы/табы), возвращает
-        /// остаток строки (перевод, может быть пустым); иначе null. Поля сравниваются как литералы, поэтому
-        /// внутренние пробелы в них допустимы («Game Over»); после каждого поля требуется граница (пробел/конец).
+        /// Строка начинается с полей по порядку (между ними любые пробелы/табы) → возвращает остаток (перевод), иначе null.
+        /// Поля — литералы (внутренние пробелы ок, «Game Over»); после каждого нужна граница.
         /// </summary>
         private static string ConsumeOrderedFieldsReturnRest(string line, params string[] fields)
         {
@@ -876,9 +861,7 @@ namespace UnityTextTranslator
 
         private int PasteAiTableByMatch(string text)
         {
-            // Очередь хранит ССЫЛКИ на элементы (не индексы): перевод пишем прямо в элемент, а его строку грида
-            // находим через Tag (RowIndexOfItem). Так совпадение по ключу и запись не зависят от выравнивания
-            // порядка грида и списка.
+            // очередь хранит ССЫЛКИ на элементы (не индексы): пишем в элемент, строку грида находим через Tag (RowIndexOfItem) — не зависит от порядка
             var rowsByKey = new Dictionary<string, Queue<TranslationItem>>();
             foreach (var item in translationItems)
             {

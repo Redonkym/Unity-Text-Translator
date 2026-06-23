@@ -13,10 +13,7 @@ using System.Security.Cryptography;
 
 namespace UnityTextTranslator
 {
-    /// <summary>
-    /// Патч одного <c>TMP_FontAsset</c> в .assets: подмена <c>Texture2D</c> атласа из PNG (Alpha8)
-    /// и пересборка <c>m_GlyphTable</c> / <c>m_CharacterTable</c> по JSON <see href="https://github.com/Chlumsky/msdf-atlas-gen">msdf-atlas-gen</see>.
-    /// </summary>
+    /// <summary>Патч <c>TMP_FontAsset</c> в .assets: подмена атласа <c>Texture2D</c> из PNG (Alpha8) и пересборка <c>m_GlyphTable</c>/<c>m_CharacterTable</c> по JSON msdf-atlas-gen.</summary>
     internal static class TmpFontAssetMsdfAtlasPatcher
     {
         private const int UnityTextureFormatAlpha8 = 1;
@@ -33,10 +30,7 @@ namespace UnityTextTranslator
             internal int AtlasHeight;
         }
 
-        /// <summary>
-        /// Шаг «Анализ»: структурно (без MonoScript, годится для IL2CPP) находит TMP_FontAsset в .assets —
-        /// по сигнатуре m_GlyphTable. Для каждого читает атлас-текстуру (m_AtlasTextures[0]) и её размер.
-        /// </summary>
+        /// <summary>«Анализ»: структурно (без MonoScript, годится для IL2CPP) находит TMP_FontAsset по сигнатуре m_GlyphTable; читает атлас (m_AtlasTextures[0]) и размер.</summary>
         internal static List<TmpFontInfo> AnalyzeTmpFonts(string classDataPath, string assetsPath, ICollection<string> log)
         {
             if (string.IsNullOrWhiteSpace(classDataPath) || !File.Exists(classDataPath))
@@ -523,9 +517,7 @@ namespace UnityTextTranslator
         }
 
 
-        /// <summary>
-        /// Пересборка <c>m_CharacterTable</c> в буфере MonoBehaviour: count @ 0xB94, записи @ 0xB9C, хвост с 0xEDC.
-        /// </summary>
+        /// <summary>Пересборка <c>m_CharacterTable</c> в буфере MonoBehaviour: count@0xB94, записи@0xB9C, хвост с 0xEDC.</summary>
         private static byte[] BuildPatchedCharacterTableFromRawAndJson(byte[] raw, string atlasJsonPath, ICollection<string> log)
         {
             try
@@ -862,11 +854,6 @@ namespace UnityTextTranslator
             }
         }
 
-        /// <summary>
-        /// Локализует m_GlyphTable для 7296: ищет якорь из трёх подряд возрастающих m_Index
-        /// (stride 52), отматывает к началу таблицы (m_Index=0) и считает glyphCount проходом,
-        /// пока m_Index идёт 0,1,2,… Не зависит от фиксированного offset размера вектора.
-        /// </summary>
         /// <summary>
         /// Рост таблиц 7296: добавляет кириллические символы (0x0400-0x04FF) из JSON-атласа,
         /// которых нет в m_CharacterTable шрифта, как новые записи m_GlyphTable + m_CharacterTable.
@@ -1294,10 +1281,7 @@ namespace UnityTextTranslator
             }
         }
 
-        /// <summary>
-        /// Определяет размер записи m_CharacterTable (12 или 16 байт) по первым записям:
-        /// валидный unicode (0..0x10FFFF) и монотонность возрастания. Возвращает 16 по умолчанию.
-        /// </summary>
+        /// <summary>Размер записи m_CharacterTable (12/16 байт) по первым записям: валидный unicode + монотонность; по умолчанию 16.</summary>
         private static int DetectCharacterEntrySize(byte[] raw, int entriesOffset, int count, ICollection<string> log)
         {
             var best = 16;
@@ -1987,10 +1971,7 @@ namespace UnityTextTranslator
             return fallback;
         }
 
-        /// <summary>
-        /// Ставит <c>_GradientScale = gradientScale</c> во всех материалах, чей <c>_MainTex</c> указывает на
-        /// атлас <paramref name="atlasPathId"/> — чтобы толщина края SDF в шейдере совпала с атласом.
-        /// </summary>
+        /// <summary>Ставит <c>_GradientScale = gradientScale</c> в материалах, чей <c>_MainTex</c> = атлас <paramref name="atlasPathId"/> — чтобы толщина края SDF совпала с атласом.</summary>
         private static void PatchMaterialsGradientScaleForAtlas(
             AssetsManager manager, AssetsFileInstance inst, long atlasPathId, float gradientScale, ICollection<string> log)
         {
@@ -2200,7 +2181,7 @@ namespace UnityTextTranslator
                         catch
                         {
                             try { off.AsInt = 0; }
-                            catch { /* ignore */ }
+                            catch { }
                         }
                     }
                 }
@@ -2213,7 +2194,7 @@ namespace UnityTextTranslator
                         catch
                         {
                             try { sz.AsLong = 0; }
-                            catch { /* ignore */ }
+                            catch { }
                         }
                     }
                 }
@@ -2254,7 +2235,7 @@ namespace UnityTextTranslator
                     catch
                     {
                         try { offset = (ulong)Math.Max(0L, off.AsLong); }
-                        catch { /* ignore */ }
+                        catch { }
                     }
                 }
 
@@ -2264,14 +2245,14 @@ namespace UnityTextTranslator
                     catch
                     {
                         try { size = (uint)Math.Max(0, sz.AsInt); }
-                        catch { /* ignore */ }
+                        catch { }
                     }
                 }
 
                 if (p != null && !p.IsDummy)
                 {
                     try { path = p.AsString ?? ""; }
-                    catch { /* ignore */ }
+                    catch { }
                 }
 
                 log.Add("[StreamData] offset=" + offset + " size=" + size + " path='" + path + "'");
@@ -2282,9 +2263,7 @@ namespace UnityTextTranslator
             }
         }
 
-        /// <summary>
-        /// TMP_FontAsset хранит в <c>m_AtlasTextures</c> массив <see cref="PPtr"/> на отдельные объекты <c>Texture2D</c> в том же .assets (m_FileID=0).
-        /// </summary>
+        /// <summary>TMP_FontAsset хранит в <c>m_AtlasTextures</c> массив <see cref="PPtr"/> на <c>Texture2D</c> в том же .assets (m_FileID=0).</summary>
         private static (int fileId, long pathId) ResolveAtlasTexturePPtrFromTmpFont(AssetTypeValueField tmpField, ICollection<string> log)
         {
             try
@@ -2439,7 +2418,7 @@ namespace UnityTextTranslator
             if (fid != null && !fid.IsDummy)
             {
                 try { fileId = fid.AsInt; }
-                catch { /* */ }
+                catch { }
             }
             TryReadPathIdLong(pptr, out var pathId);
             return (fileId, pathId);
@@ -2532,14 +2511,14 @@ namespace UnityTextTranslator
                 catch
                 {
                     try { return (uint)u.Value<long>(); }
-                    catch { /* */ }
+                    catch { }
                 }
             }
             var ix = gtok["index"];
             if (ix != null)
             {
                 try { return (uint)ix.Value<int>(); }
-                catch { /* */ }
+                catch { }
             }
             return 0;
         }
@@ -2598,7 +2577,7 @@ namespace UnityTextTranslator
             if (cdt != null && !cdt.IsDummy)
             {
                 try { cdt.AsInt = 1; }
-                catch { /* Base */ }
+                catch { }
             }
         }
 
@@ -2608,7 +2587,7 @@ namespace UnityTextTranslator
             if (et != null && !et.IsDummy)
             {
                 try { et.AsInt = 1; }
-                catch { /* Character */ }
+                catch { }
             }
 
             TrySetUInt(cItem, "m_Unicode", unicode);
@@ -2646,10 +2625,7 @@ namespace UnityTextTranslator
             catch
             {
                 try { f.AsLong = value; }
-                catch
-                {
-                    /* ignore */
-                }
+                catch { }
             }
         }
 
@@ -2711,7 +2687,7 @@ namespace UnityTextTranslator
             catch
             {
                 try { f.AsInt = (int)value; }
-                catch { /* */ }
+                catch { }
             }
         }
 

@@ -35,10 +35,8 @@ namespace UnityTextTranslator
         internal const string AutoDetectSourceOption = "Auto-detect (auto)";
 
         /// <summary>
-        /// Языки перевода (цель), формат «Имя (код)»; код вынимает <see cref="LocalTranslateApi.ExtractLangCode"/>
-        /// из последних скобок. Коды — ISO 639-1; региональные теги zh-CN/zh-TW/pt-BR/pt-PT оставлены намеренно —
-        /// LLM-провайдеры дают по ним точнее. Существующие строки НЕ переименовывать (привязаны сохранённые настройки).
-        /// Источник (cbSrc) дополнительно получает <see cref="AutoDetectSourceOption"/> первым пунктом.
+        /// Языки перевода (цель), формат «Имя (код)» (код — <see cref="LocalTranslateApi.ExtractLangCode"/> из последних скобок). ISO 639-1 + региональные zh-CN/pt-BR
+        /// намеренно (LLM точнее). Существующие строки НЕ переименовывать (привязаны настройки). Источник (cbSrc) получает <see cref="AutoDetectSourceOption"/> первым.
         /// </summary>
         internal static readonly string[] UiLanguageOptions =
         {
@@ -184,9 +182,7 @@ namespace UnityTextTranslator
         /// <summary>Отмена длительных операций Unity .assets (экспорт/импорт JSON) по Esc.</summary>
         private CancellationTokenSource _assetsWorkCts;
 
-        /// <summary>
-        /// Кеш корня UI «Главная» только в оперативной памяти процесса (не файлы и не AppData): переиспользуется при возврате в раздел «Главная».
-        /// </summary>
+        /// <summary>Кеш корня UI «Главная» в RAM процесса (не файл/AppData): переиспользуется при возврате на «Главную».</summary>
         private Panel cachedDashboardRoot;
         private int _dashboardContentStamp;
         private int _dashboardCacheBuiltAtStamp = -1;
@@ -204,8 +200,7 @@ namespace UnityTextTranslator
 
         private sealed class TranslationUndoCell
         {
-            /// <summary>Ссылка на элемент перевода (НЕ индекс строки): отмена находит его строку через Tag,
-            /// поэтому остаётся корректной даже если грид пересортировали/отфильтровали после правки.</summary>
+            /// <summary>Ссылка на элемент (НЕ индекс): отмена находит строку через Tag → устойчиво к пересортировке/фильтру после правки.</summary>
             public TranslationItem Item;
             public string PreviousTranslated;
         }
@@ -287,11 +282,7 @@ namespace UnityTextTranslator
             "uid", "variableName", "m_Key", "m_TableCollectionName", "onDialogBaseAnim", "location"
         }, StringComparer.OrdinalIgnoreCase);
 
-        /// <summary>
-        /// Дополнительно к <see cref="SkipKeys"/>: поддеревья с этими именами свойств не считаются игровым текстом
-        /// при удалении JSON «только метаданные».
-        /// Поле <c>m_Name</c> вынесено в <see cref="SkipKeys"/>: оно не показывается в таблице перевода; игровой текст ищется в полях вроде <c>m_Localized</c>, <c>m_Text</c>.
-        /// </summary>
+        /// <summary>Доп. к <see cref="SkipKeys"/>: поддеревья с этими именами не считаются игровым текстом при удалении JSON «только метаданные».</summary>
         private static readonly HashSet<string> MetadataOnlyJsonKeys = new HashSet<string>(new[]
         {
             "m_EditorClassIdentifier",
@@ -390,18 +381,17 @@ namespace UnityTextTranslator
         }, StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
-        /// Имена полей/контейнеров, значения которых при удалении «только метаданные» считаются
-        /// техническими (не игровой текст), даже если содержат «слова». Проверяется как последний
-        /// именованный сегмент пути (индексы массива <c>[N]</c> пропускаются), поэтому покрывает и
-        /// элементы массивов вида <c>scenesForLoad › [0]</c>.
-        /// Уровень «Среднее»: имена сцен и наборов глаз/идентификаторов + чистая разметка TMP;
-        /// generic-поля <c>name</c>/<c>description</c> команд НЕ входят (слишком похожи на текст).
+        /// Имена полей/контейнеров, чьи значения при удалении «только метаданные» технические (не текст), даже со «словами».
+        /// Проверяется как последний именованный сегмент пути (индексы <c>[N]</c> пропускаются → покрывает <c>scenesForLoad › [0]</c>).
+        /// generic <c>name</c>/<c>description</c> команд НЕ входят (похожи на текст).
         /// </summary>
         private static readonly HashSet<string> MetadataPurgeTechnicalPathSegments = new HashSet<string>(new[]
         {
             // Имена сцен для загрузки/выгрузки — это идентификаторы сцен, а не текст для игрока.
             "scenesForLoad",
             "scenesForUnload",
+            // Идентификатор локации/сцены (по нему грузится сцена) — перевод ломает загрузку по имени.
+            "locname",
             // Наборы имён выражений глаз и т.п. — внутренние идентификаторы.
             "eyeExpNames",
             // Имена стадий (HScene и пр.) — внутренние ключи стадий, не игровой текст.
@@ -588,9 +578,8 @@ namespace UnityTextTranslator
         }
 
         /// <summary>
-        /// Ловит «программные фразы», которые остаются после базовой очистки «только метаданные»:
-        /// enum-значения, CONSTANT_CASE, точечные пути (a.b.c), HEX-цвета, вызовы методов/лямбды,
-        /// булевы литералы. Консервативно: строки с пробелами (обычный человеческий текст) проходят.
+        /// «Программные фразы» после базовой очистки: enum, CONSTANT_CASE, точечные пути, HEX-цвета, вызовы/лямбды, булевы литералы.
+        /// Консервативно: строки с пробелами (человеческий текст) проходят.
         /// </summary>
         private static bool LooksLikeProgramPhrase(string value)
         {
@@ -691,14 +680,11 @@ namespace UnityTextTranslator
             {
                 SyncBundleLocFieldsFromUi();
                 SaveSettings();
-                try { _assetsWorkCts?.Cancel(); } catch { /* ignore */ }
+                try { _assetsWorkCts?.Cancel(); } catch { }
                 _assetsWorkCts?.Dispose();
                 _assetsWorkCts = null;
             }
-            catch
-            {
-                /* ignore */
-            }
+            catch { }
 
             DisposeCachedDashboardRoot();
             base.OnFormClosing(e);
@@ -709,14 +695,14 @@ namespace UnityTextTranslator
         {
             if (_apiBatchTranslateCts != null && !_apiBatchTranslateCts.IsCancellationRequested)
             {
-                try { _apiBatchTranslateCts.Cancel(); } catch { /* ignore */ }
+                try { _apiBatchTranslateCts.Cancel(); } catch { }
                 Log(L("Cancel requested: API batch translation.", "Запрошена отмена: пакетный перевод API."));
                 return true;
             }
 
             if (_assetsWorkCts != null && !_assetsWorkCts.IsCancellationRequested)
             {
-                try { _assetsWorkCts.Cancel(); } catch { /* ignore */ }
+                try { _assetsWorkCts.Cancel(); } catch { }
                 Log(L(
                     "Cancel requested: Unity .assets export/import (stops after the current object; wait a moment).",
                     "Запрошена отмена: экспорт/импорт Unity .assets (остановится после текущего объекта, подождите секунду)."));
@@ -728,7 +714,7 @@ namespace UnityTextTranslator
 
         private CancellationToken BeginNewAssetsWorkCancellation()
         {
-            try { _assetsWorkCts?.Cancel(); } catch { /* ignore */ }
+            try { _assetsWorkCts?.Cancel(); } catch { }
             _assetsWorkCts?.Dispose();
             _assetsWorkCts = new CancellationTokenSource();
             return _assetsWorkCts.Token;
@@ -736,7 +722,7 @@ namespace UnityTextTranslator
 
         private void EndAssetsWorkCancellation()
         {
-            try { _assetsWorkCts?.Dispose(); } catch { /* ignore */ }
+            try { _assetsWorkCts?.Dispose(); } catch { }
             _assetsWorkCts = null;
         }
 
@@ -996,10 +982,7 @@ namespace UnityTextTranslator
             {
                 _apiBatchTranslateCts?.Cancel();
             }
-            catch (ObjectDisposedException)
-            {
-                /* завершение пакета */
-            }
+            catch (ObjectDisposedException) { }
         }
 
         private async void MenuTranslateEmptyViaLocalApi_Click(object sender, EventArgs e)
@@ -1146,10 +1129,8 @@ namespace UnityTextTranslator
                 memLookup = TranslationMemory.Load();
             var batchOriginalDedupe = new Dictionary<string, string>(StringComparer.Ordinal);
 
-            // Пакет работает со ССЫЛКАМИ на элементы, а не с фиксированными индексами строк: если во время
-            // перевода сменить сортировку, список translationItems переставится и грид перезальётся, но ссылки
-            // останутся валидны — строку элемента находим заново через row.Tag (RowIndexOfItem), а undo пишет
-            // ссылку на элемент. Поэтому перевод/отмена попадают в правильную строку, а не в чужую.
+            // пакет работает со ССЫЛКАМИ на элементы, не индексами строк: при смене сортировки во время перевода
+            // строку находим заново через row.Tag (RowIndexOfItem), undo пишет ссылку → перевод/отмена в правильную строку
             var workItems = new List<TranslationItem>(indices.Count);
             foreach (var i in indices)
                 if (i >= 0 && i < translationItems.Count)
@@ -1240,10 +1221,7 @@ namespace UnityTextTranslator
                                                 $"Пауза ~{secs} с (лимит OpenRouter для :free)…"));
                                     }));
                                 }
-                                catch
-                                {
-                                    /* форма закрывается */
-                                }
+                                catch { }
                             },
                             translateCt).ConfigureAwait(true);
 
@@ -1303,10 +1281,7 @@ namespace UnityTextTranslator
                 {
                     _apiBatchTranslateCts?.Dispose();
                 }
-                catch
-                {
-                    /* отмена во время Dispose */
-                }
+                catch { }
 
                 _apiBatchTranslateCts = null;
                 StopApiBatchTranslationHeartbeat();
@@ -1444,11 +1419,7 @@ namespace UnityTextTranslator
             return "en";
         }
 
-        /// <summary>
-        /// Держит редактируемый combo языков (с поиском по вводу) в валидном состоянии: после ухода фокуса
-        /// фиксирует выбор на ТОЧНО совпадающем пункте (через что обновится <paramref name="stored"/> и настройки),
-        /// а недопустимый/недопечатанный ввод откатывает к сохранённому значению.
-        /// </summary>
+        /// <summary>Держит редактируемый combo языков валидным: на Leave фиксирует ТОЧНОЕ совпадение (обновит <paramref name="stored"/>+настройки), недопечатанный ввод откатывает.</summary>
         private static void SnapLanguageComboToValidItem(ComboBox combo, ref string stored)
         {
             if (combo == null || combo.IsDisposed)
@@ -1478,9 +1449,8 @@ namespace UnityTextTranslator
             string.Equals(appUiLanguage, "ru", StringComparison.OrdinalIgnoreCase);
 
         /// <summary>
-        /// Подпись интерфейса по текущему языку. en/ru — мгновенно из аргументов (горячий путь не изменился);
-        /// доп. языки — из ui-languages.json по английскому ключу с откатом на English, если перевода нет.
-        /// Поэтому новые <c>L(...)</c> НЕ требуют правок файла переводов — непереведённое просто на английском.
+        /// Подпись по текущему языку: en/ru мгновенно из аргументов; доп. языки — из ui-languages.json по англ. ключу с откатом на English.
+        /// Поэтому новые <c>L(...)</c> НЕ требуют правок файла переводов (непереведённое — по-английски).
         /// </summary>
         private string L(string english, string russian)
         {
@@ -2170,10 +2140,7 @@ namespace UnityTextTranslator
                     {
                         return new Font(face, 13f);
                     }
-                    catch
-                    {
-                        /* следующий шрифт */
-                    }
+                    catch { }
                 }
 
                 return new Font("Segoe UI", 11f);
@@ -2627,10 +2594,7 @@ namespace UnityTextTranslator
             KickoffModelsCatalog();
         }
 
-        /// <summary>
-        /// Вертикальный раскладчик карточки настроек: заголовок, строки «подпись | поле» и строки во всю ширину.
-        /// Поля растягиваются по ширине карточки (Anchor), высоту карточки задаёт <see cref="Finish"/> — без пустот.
-        /// </summary>
+        /// <summary>Вертикальный раскладчик карточки настроек: заголовок, строки «подпись|поле», строки во всю ширину; поля тянутся (Anchor), высоту задаёт <see cref="Finish"/>.</summary>
         private sealed class SettingsCardStacker
         {
             private readonly Panel _card;
@@ -3056,11 +3020,8 @@ namespace UnityTextTranslator
         }
 
         /// <summary>
-        /// Массово перезаливает строки грида из <see cref="translationItems"/>.
-        /// На время заливки отключает авторазмер строк (иначе каждый Add измеряет перенос
-        /// текста по всем ячейкам — near-O(n²) на больших таблицах) и добавляет строки одним
-        /// <c>AddRange</c> вместо поштучных <c>Rows.Add</c>. Режим авторазмера восстанавливается
-        /// в конце — один проход вместо N.
+        /// Массово перезаливает строки грида из <see cref="translationItems"/>: на время заливки отключает авторазмер строк
+        /// (иначе каждый Add меряет перенос — near-O(n²)) и добавляет одним <c>AddRange</c> вместо поштучных <c>Rows.Add</c>.
         /// </summary>
         private void PopulateJsonGridRowsFast()
         {
@@ -3119,11 +3080,7 @@ namespace UnityTextTranslator
             return -1;
         }
 
-        /// <summary>
-        /// Перезаливает колонку «Перевод» в гриде из элементов, привязанных к строкам (Tag). Каждая строка
-        /// берёт значение из СВОЕГО элемента, поэтому порядок строк/списка не важен — сдвиг невозможен.
-        /// Замена прежних циклов <c>for i: dgv.Rows[i] = translationItems[i]</c>, которые требовали выравнивания.
-        /// </summary>
+        /// <summary>Перезаливает колонку «Перевод» из элементов строк (Tag): каждая строка берёт значение из СВОЕГО элемента → порядок не важен, сдвиг невозможен.</summary>
         private void RefreshTranslatedColumnFromItems()
         {
             if (dgv == null || dgv.IsDisposed)
@@ -3591,7 +3548,7 @@ namespace UnityTextTranslator
                     sharedCount++;
 
                 long length = 0;
-                try { length = new FileInfo(path).Length; } catch { /* ignore */ }
+                try { length = new FileInfo(path).Length; } catch { }
                 totalBytes += length;
 
                 var rowIndex = assetsModuleAssetsGrid.Rows.Add(
@@ -3840,10 +3797,7 @@ namespace UnityTextTranslator
                 Directory.CreateDirectory(ClassPackageDownloader.AppDataAppFolder);
                 File.WriteAllText(SessionFileLogPath, string.Empty, new UTF8Encoding(false));
             }
-            catch
-            {
-                /* ignore */
-            }
+            catch { }
         }
 
         private static void AppendSessionFileLog(string line)
@@ -3854,10 +3808,7 @@ namespace UnityTextTranslator
                 {
                     File.AppendAllText(SessionFileLogPath, line, new UTF8Encoding(false));
                 }
-                catch
-                {
-                    /* ignore */
-                }
+                catch { }
             }
         }
 
@@ -3869,10 +3820,7 @@ namespace UnityTextTranslator
                 {
                     Invoke(new Action<string, bool>(Log), msg, isError);
                 }
-                catch (ObjectDisposedException)
-                {
-                    /* форма закрывается */
-                }
+                catch (ObjectDisposedException) { }
 
                 return;
             }
@@ -3922,10 +3870,7 @@ namespace UnityTextTranslator
                 Cursor = Cursors.Default;
                 Cursor.Current = Cursors.Default;
             }
-            catch
-            {
-                /* ignore */
-            }
+            catch { }
         }
 
         private static ProgressBar GetActiveProgressBar(ProgressBar assetsPb, ProgressBar jsonPb)
@@ -3981,11 +3926,8 @@ namespace UnityTextTranslator
             if (dgv == null || dgv.IsDisposed)
                 return;
 
-            // Переносим «Перевод» из ячейки грида в ЕЁ элемент (row.Tag). Так как строка жёстко связана со
-            // своим элементом через Tag, пара «Оригинал→Перевод» всегда та, что видит пользователь — сдвиг
-            // невозможен, даже если порядок грида и списка временно разошёлся (сортировка/частичная заливка).
-            // Прежний обходной путь (сопоставление по ключу Файл/Путь/Оригинал + диагностика рассинхрона) больше
-            // не нужен: Tag — прямая ссылка, а не эвристика по содержимому.
+            // переносим «Перевод» из ячейки в ЕЁ элемент (row.Tag): строка жёстко связана с элементом → пара та, что видит
+            // пользователь, сдвиг невозможен даже при разошедшемся порядке грида/списка (сортировка/частичная заливка)
             foreach (DataGridViewRow row in dgv.Rows)
             {
                 if (row.IsNewRow)
@@ -4009,10 +3951,8 @@ namespace UnityTextTranslator
         }
 
         /// <summary>
-        /// Программная сортировка таблицы перевода: переставляет САМ список <see cref="translationItems"/>
-        /// и перезаливает грид (<see cref="PopulateJsonGridRowsFast"/> заново проставляет row.Tag). Связь
-        /// «строка↔элемент» держится на Tag, а не на совпадении индексов, поэтому подсветка, undo, импорт и
-        /// ИИ-перевод адресуют строки корректно в любом порядке. Повторный клик по столбцу инвертирует порядок.
+        /// Программная сортировка: переставляет САМ список <see cref="translationItems"/> и перезаливает грид (Tag проставляется заново).
+        /// Связь строка↔элемент на Tag, не на индексах → подсветка/undo/импорт/ИИ адресуют верно в любом порядке. Повторный клик инвертирует.
         /// </summary>
         private void SortJsonTableByColumn(int columnIndex)
         {
@@ -4141,9 +4081,7 @@ namespace UnityTextTranslator
             _translatedEditStartValue = editItem.Translated ?? "";
         }
 
-        /// <summary>
-        /// Подставляет переводы из memory.json для строк с пустым переводом (точное совпадение по оригиналу).
-        /// </summary>
+        /// <summary>Подставляет переводы из memory.json для строк с пустым переводом (точное совпадение по оригиналу).</summary>
         private int ApplyTranslationMemoryFromStore()
         {
             var mem = TranslationMemory.Load();
@@ -4330,9 +4268,8 @@ namespace UnityTextTranslator
                 int total = files.Length;
                 scannedJsonTotal[0] = total;
 
-                // Чтение+парсинг файлов независимы, а JToken.Parse — CPU-нагрузка: гоним параллельно по ядрам.
-                // Каждый файл пишет в СВОЙ список (translationItems/ExtractStrings не потокобезопасны), затем
-                // сливаем по индексу файла → порядок строк идентичен прежнему последовательному проходу.
+                // парсинг файлов независим, JToken.Parse — CPU: гоним параллельно. Каждый пишет в СВОЙ список
+                // (ExtractStrings не потокобезопасен), сливаем по индексу файла → порядок строк как при последовательном проходе.
                 var perFile = new List<TranslationItem>[total];
                 int processed = 0;
                 int lastPostedPercent = -1;
@@ -4456,10 +4393,7 @@ namespace UnityTextTranslator
                     action();
                 }
             }
-            catch
-            {
-                // ignore: форма закрылась или поток обновления UI прервался
-            }
+            catch { }
         }
 
         private async void BtnApply_Click(object sender, EventArgs e)
@@ -4488,7 +4422,7 @@ namespace UnityTextTranslator
                         this.Invoke((Action)(() =>
                             progressBar.Value = total > 0 ? (int)((double)processed / total * 100) : 100));
                     }
-                    catch { /* форма закрывается */ }
+                    catch { }
                 });
             });
 
@@ -4608,12 +4542,9 @@ namespace UnityTextTranslator
                 !UnityAssetsGameFolderHelper.TryPickAssetsFile(this, resolved, out assetsPath))
                 return;
 
-            // По умолчанию сохраняем ПОВЕРХ оригинала (in-place) — и для streaming-сцен (level0/level1…),
-            // и для resources.assets/sharedassets. Текстуры и прочее жёстко ссылаются на исходное имя потока
-            // (например resources.assets.resS), поэтому отдельный «resources.translated.assets» + переименованная
-            // копия .resS — это грабли: при подмене .resS теряет нужное имя и картинки рендерятся magenta.
-            // In-place не меняет имя контейнера и не требует переименований; оригинал бэкапится в «<имя>.utt-orig».
-            // При желании пользователь может в диалоге указать другое имя/папку (тогда вернётся ручная подмена).
+            // по умолчанию пишем ПОВЕРХ оригинала (in-place): текстуры/потоки жёстко ссылаются на исходное имя
+            // (resources.assets.resS), поэтому «*.translated.assets» + переименованный .resS = грабли (magenta).
+            // In-place не меняет имя и не требует переименований; оригинал бэкапится в «<имя>.utt-orig». В диалоге можно задать другое имя.
             var isLevelContainer = UnityAssetsGameFolderHelper.LooksLikeStreamingSceneLevelContainer(assetsPath);
 
             var outputPath = assetsPath;
@@ -5166,7 +5097,7 @@ namespace UnityTextTranslator
                     if (inst != null)
                     {
                         try { manager.UnloadAssetsFile(inst); }
-                        catch { /* ignore */ }
+                        catch { }
                     }
                 }
             }
@@ -5620,11 +5551,8 @@ namespace UnityTextTranslator
         }
 
         /// <summary>
-        /// Импорт файла «только оригинал»: строка <c>i</c> блока данных записывается в «Перевод» для той же строки таблицы,
-        /// что и при экспорте (ряд с непустым «Оригиналом», тот же режим «Способ копирования JSON»).
-        /// Если в файле есть строка-маркер <see cref="TranslationTxtExchange.OriginalOnlyDataBeginMarker"/> — данные берутся только ниже неё;
-        /// иначе используются все строки файла (обратная совместимость).
-        /// Пустая строка данных задаёт пустой перевод.
+        /// Импорт «только оригинал»: строка i блока → «Перевод» той же строки таблицы, что при экспорте (непустой «Оригинал», тот же режим копирования).
+        /// Есть маркер <see cref="TranslationTxtExchange.OriginalOnlyDataBeginMarker"/> — берём только ниже него, иначе весь файл. Пустая строка = пустой перевод.
         /// </summary>
         private void ImportOriginalOnlyLinesFromFile(string[] rawLines, TranslationTxtFormat formatTagForLog)
         {
@@ -5831,9 +5759,7 @@ namespace UnityTextTranslator
                     var root = JToken.Parse(json);
                     var dummyPath = new List<string>();
                     var n = CountExtractableStringsInJsonTree(root, dummyPath, SkipKeys, metadataPurgeHeuristics: false, Path.GetFileName(path));
-                    // Дампы «-resources-N.json» без переводимого текста тоже удаляем:
-                    // оригинальный .assets не трогается, при обратной сборке отсутствующий
-                    // (пустой) файл просто не импортируется.
+                    // дампы «-resources-N.json» без текста тоже удаляем: оригинальный .assets не трогается, при сборке отсутствующий файл просто не импортируется
                     if (n == 0 && !IsClothInstanceUnityExportJson(path))
                     {
                         File.Delete(path);
@@ -5989,9 +5915,7 @@ namespace UnityTextTranslator
                     var root = JToken.Parse(json);
                     var dummyPath = new List<string>();
                     var n = CountExtractableStringsInJsonTree(root, dummyPath, skip, metadataPurgeHeuristics: true, Path.GetFileName(path));
-                    // Дампы «-resources-N.json» без переводимого текста тоже удаляем:
-                    // оригинальный .assets не трогается, при обратной сборке отсутствующий
-                    // (пустой) файл просто не импортируется.
+                    // дампы «-resources-N.json» без текста тоже удаляем: оригинальный .assets не трогается, при сборке отсутствующий файл просто не импортируется
                     if (n == 0 && !IsClothInstanceUnityExportJson(path))
                     {
                         File.Delete(path);
@@ -6009,10 +5933,7 @@ namespace UnityTextTranslator
             return (deleted, withGameplayText, parseErrors);
         }
 
-        /// <summary>
-        /// Считает строковые значения как при извлечении в таблицу (<see cref="ExtractStrings"/>), опционально с эвристиками
-        /// для режима «удалить JSON только метаданные»: GUID, пути Assets/, типы UnityEngine/TMPro и т.п. не считаются переводимым текстом.
-        /// </summary>
+        /// <summary>Считает строки как <see cref="ExtractStrings"/>, опц. с эвристиками «только метаданные» (GUID/пути Assets//типы Unity не считаются текстом).</summary>
         private static int CountExtractableStringsInJsonTree(JToken token, List<string> currentPath, HashSet<string> skipKeys, bool metadataPurgeHeuristics, string sourceFileName)
         {
             if (token == null)
@@ -6077,11 +5998,22 @@ namespace UnityTextTranslator
             SaveSettings();
         }
 
-        /// <summary>
-        /// Фильтрация строк по поиску и режиму Review. Переносится в очередь сообщений WinForms,
-        /// чтобы не менять <see cref="DataGridView.CurrentCell"/> во время <c>CellEndEdit</c>
-        /// (иначе возможен повторный вход в <c>SetCurrentCellAddressCore</c>).
-        /// </summary>
+        /// <summary>Поиск по Enter/кнопке (НЕ живой): фильтрует при смене текста, затем прыгает к совпадению.</summary>
+        private void RunJsonTableSearchFromBox()
+        {
+            if (jsonSearchBox == null || jsonSearchBox.IsDisposed)
+                return;
+
+            var text = jsonSearchBox.Text.Trim();
+            if (text != currentSearchText)
+            {
+                currentSearchText = text;
+                ApplyTableSearchCore(refreshHighlights: false); // поиск не меняет цвета строк → без перекраски
+                UpdateStatus();
+            }
+            FindNextTableSearchMatch();
+        }
+
         private void ApplyTableSearch()
         {
             if (dgv == null || dgv.IsDisposed)
@@ -6116,7 +6048,7 @@ namespace UnityTextTranslator
             ApplyTableSearchCore();
         }
 
-        private void ApplyTableSearchCore()
+        private void ApplyTableSearchCore(bool refreshHighlights = true)
         {
             if (dgv == null || dgv.IsDisposed)
                 return;
@@ -6132,6 +6064,7 @@ namespace UnityTextTranslator
             }
 
             dgv.SuspendLayout();
+            SetDgvRedraw(false); // без заморозки каждый row.Visible= перерисовывает грид → O(n²) на большой таблице
             try
             {
                 dgv.CurrentCell = null;
@@ -6146,10 +6079,14 @@ namespace UnityTextTranslator
 
                     var matchesSearch = string.IsNullOrWhiteSpace(query) || RowContains(row, query);
 
-                    row.Visible = matchesSearch;
+                    // только при смене — иначе лишний пересчёт грида
+                    if (row.Visible != matchesSearch)
+                        row.Visible = matchesSearch;
                 }
 
-                UpdateRowHighlights();
+                // фильтр не меняет статус перевода → при поиске перекраска не нужна
+                if (refreshHighlights)
+                    UpdateRowHighlights();
                 UpdateProgressStats();
 
                 if (restoreCol >= 0 && restoreRow >= 0 && restoreRow < dgv.Rows.Count)
@@ -6161,8 +6098,21 @@ namespace UnityTextTranslator
             }
             finally
             {
+                SetDgvRedraw(true);
                 dgv.ResumeLayout(true);
             }
+        }
+
+        private const int WM_SETREDRAW = 0x000B;
+
+        /// <summary>Вкл/выкл перерисовку грида (WM_SETREDRAW); при включении инвалидирует.</summary>
+        private void SetDgvRedraw(bool on)
+        {
+            if (dgv == null || dgv.IsDisposed || !dgv.IsHandleCreated)
+                return;
+            SendMessage(dgv.Handle, WM_SETREDRAW, on ? 1 : 0, 0);
+            if (on)
+                dgv.Invalidate();
         }
 
         private void UpdateRowHighlights()
@@ -6204,15 +6154,18 @@ namespace UnityTextTranslator
 
         private bool RowContains(DataGridViewRow row, string query)
         {
-            foreach (DataGridViewCell cell in row.Cells)
-            {
-                var text = cell.Value?.ToString();
-                if (!string.IsNullOrEmpty(text) &&
-                    text.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0)
-                    return true;
-            }
-            return false;
+            // Матчим по полям item (row.Tag), а не по ячейкам грида — .Value/.ToString() на каждую ячейку дорого.
+            var item = RowItem(row);
+            if (item == null)
+                return false;
+            return FieldContains(item.FileName, query)
+                || FieldContains(item.DisplayPath, query)
+                || FieldContains(item.Original, query)
+                || FieldContains(item.Translated, query);
         }
+
+        private static bool FieldContains(string text, string query) =>
+            !string.IsNullOrEmpty(text) && text.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0;
 
         private void UpdateProgressStats()
         {
@@ -7121,10 +7074,7 @@ namespace UnityTextTranslator
             TrySnapWindowAfterCaptionDrag();
         }
 
-        /// <summary>
-        /// Снимает окно со снапа: возвращает прежний размер и ставит его под курсор так, чтобы
-        /// заголовок остался «прихваченным» под указателем — как при отрыве снапнутого окна в Windows.
-        /// </summary>
+        /// <summary>Снимает окно со снапа: прежний размер под курсор, заголовок «прихвачен» под указателем (как отрыв снапнутого окна в Windows).</summary>
         private void RestoreFromSnapUnderCursor()
         {
             try
@@ -7151,20 +7101,14 @@ namespace UnityTextTranslator
 
                 Bounds = new Rectangle(newLeft, newTop, restored.Width, restored.Height);
             }
-            catch
-            {
-                /* игнор — в худшем случае окно просто не сменит размер до отпускания */
-            }
+            catch { } // в худшем случае окно не сменит размер до отпускания
             finally
             {
                 _isWindowSnapped = false;
             }
         }
 
-        /// <summary>
-        /// Aero Snap для безрамочного окна (FormBorderStyle.None): после перетаскивания шапки к краю экрана
-        /// прижимаем окно к левой/правой половине рабочей области, к верху — разворачиваем.
-        /// </summary>
+        /// <summary>Aero Snap для безрамочного окна: перетаскивание шапки к краю прижимает к левой/правой половине, к верху — разворот.</summary>
         private void TrySnapWindowAfterCaptionDrag()
         {
             if (WindowState != FormWindowState.Normal)
@@ -7193,10 +7137,7 @@ namespace UnityTextTranslator
                     ToggleCaptionWindowState(); // верхний край — разворот, как в Windows
                 }
             }
-            catch
-            {
-                /* снап — необязательная фича, любые ошибки экрана/границ игнорируем */
-            }
+            catch { } // снап необязателен — ошибки экрана/границ игнорируем
         }
 
         private void CaptionChrome_ToggleMaximize(object sender, EventArgs e)

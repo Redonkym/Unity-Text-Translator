@@ -9,8 +9,7 @@ using Microsoft.Win32;
 
 namespace UnityTextTranslator
 {
-    // Пользовательские HTML-панели на «Главной»: пользователь сам «кодит» содержимое (HTML/CSS/JS),
-    // рендер во встроенном WebBrowser. Хранятся в настройках, переживают перезапуск.
+    // HTML-панели на «Главной»: пользователь кодит содержимое (HTML/CSS/JS), рендер во встроенном WebBrowser; хранятся в настройках.
     partial class Form1
     {
         /// <summary>Одна пользовательская HTML-панель дашборда.</summary>
@@ -117,7 +116,7 @@ namespace UnityTextTranslator
                         e.Graphics.DrawPath(pen, path);
                     }
                 }
-                catch { /* ignore */ }
+                catch { }
             };
 
             var header = new Panel
@@ -179,7 +178,7 @@ namespace UnityTextTranslator
             card.Controls.Add(header);
 
             try { web.DocumentText = WrapPanelHtml(panel.Html, dark); }
-            catch { /* ignore */ }
+            catch { }
 
             btnEdit.Click += (_, __) =>
             {
@@ -245,7 +244,7 @@ namespace UnityTextTranslator
                                 (tile.Width - sz2.Width) / 2f, tile.Height / 2f + 12);
                     }
                 }
-                catch { /* ignore */ }
+                catch { }
             };
 
             void AddNew(object _, EventArgs __)
@@ -428,7 +427,7 @@ namespace UnityTextTranslator
                     key?.SetValue(exe, 11001, RegistryValueKind.DWord);
                 }
             }
-            catch { /* ignore */ }
+            catch { }
         }
     }
 }

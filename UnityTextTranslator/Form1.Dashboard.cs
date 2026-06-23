@@ -269,8 +269,7 @@ namespace UnityTextTranslator
             actionsCard.Margin = new Padding(0, 0, 12, 0);
             mainRow.Controls.Add(actionsCard, 0, 0);
 
-            // Правая колонка: «Недавние папки» (растягивается) + «Автор» снизу — так нет пустой
-            // широкой полосы внизу страницы и заполняется низ правой колонки.
+            // Правая колонка: «Недавние папки» (растягивается) + «Автор» снизу — чтобы низ не пустовал.
             var rightCol = new TableLayoutPanel
             {
                 Dock = DockStyle.Top,
@@ -310,8 +309,7 @@ namespace UnityTextTranslator
 
             mainRow.Controls.Add(rightCol, 1, 0);
 
-            // Центральная стопка: основной ряд (действия | недавние+автор) + пользовательские
-            // HTML-панели снизу (заполняют свободное место, кнопка «+» добавляет новые).
+            // Центральная стопка: основной ряд (действия | недавние+автор) + HTML-панели снизу (кнопка «+» добавляет).
             var centerStack = new TableLayoutPanel
             {
                 Dock = DockStyle.Top,
@@ -427,10 +425,7 @@ namespace UnityTextTranslator
                         e.Graphics.DrawPath(pen, path);
                     }
                 }
-                catch
-                {
-                    // ignore
-                }
+                catch { }
             };
 
             return p;
@@ -638,10 +633,7 @@ namespace UnityTextTranslator
                             e.Graphics.DrawPath(pen, path);
                         }
                     }
-                    catch
-                    {
-                        // ignore
-                    }
+                    catch { }
                 };
 
                 var pic = new PictureBox
@@ -707,10 +699,7 @@ namespace UnityTextTranslator
                         bool inside = tile.ClientRectangle.Contains(tile.PointToClient(Cursor.Position));
                         tile.BackColor = inside ? hoverBg : tileBg;
                     }
-                    catch
-                    {
-                        // ignore
-                    }
+                    catch { }
                 }
                 EventHandler hov = (_, __) => RefreshHover();
                 tile.MouseEnter += hov;
@@ -892,9 +881,7 @@ namespace UnityTextTranslator
                 BackColor = Color.Transparent
             };
 
-            // Тело — ОДНА LinkLabel, пришпиленная к НИЗУ карточки (Dock=Bottom), чтобы строка
-            // гарантированно не наезжала на строку-заголовок сверху. Одиночная метка всегда рисует
-            // текст — вложенному контейнеру в узком ряду схлопываться нечему. Ссылка — часть строки.
+            // Тело — ОДНА LinkLabel (а не вложенный контейнер): в узком ряду метка всегда рисует текст и не наезжает на заголовок.
             string prefix =
                 L("Author - Redonkym", "Автор - Redonkym") + "\n" +
                 L("Support development on Boosty: ", "Поддержать разработку на Boosty: ");
@@ -954,10 +941,7 @@ namespace UnityTextTranslator
                 if (Directory.Exists(path))
                     return Directory.GetLastWriteTime(path);
             }
-            catch
-            {
-                // ignore
-            }
+            catch { }
 
             return DateTime.MinValue;
         }
@@ -1012,10 +996,7 @@ namespace UnityTextTranslator
                     using (var pen = new Pen(divider, 1f))
                         e.Graphics.DrawLine(pen, 0, p.Height - 1, p.Width, p.Height - 1);
                 }
-                catch
-                {
-                    // ignore
-                }
+                catch { }
             };
 
             var lbl = new Label
@@ -1042,10 +1023,7 @@ namespace UnityTextTranslator
                     p.BackColor = dark ? Color.FromArgb(51, 65, 85) : Color.FromArgb(243, 244, 246);
                     lbl.BackColor = p.BackColor;
                 }
-                catch
-                {
-                    // ignore
-                }
+                catch { }
             }
 
             void HoverOut(object _, EventArgs __)
@@ -1055,10 +1033,7 @@ namespace UnityTextTranslator
                     p.BackColor = Color.Transparent;
                     lbl.BackColor = Color.Transparent;
                 }
-                catch
-                {
-                    // ignore
-                }
+                catch { }
             }
 
             p.MouseEnter += HoverIn;
@@ -1078,9 +1053,7 @@ namespace UnityTextTranslator
                 (int)Math.Round(a.B * u + b.B * t));
         }
 
-        /// <summary>
-        /// Полная перерисовка без стандартной обводки WinForms (убирает «белую» кайму при Flat-кнопках).
-        /// </summary>
+        /// <summary>Полная перерисовка без стандартной обводки WinForms (убирает «белую» кайму при Flat-кнопках).</summary>
         private sealed class DashboardOutlineButton : Button
         {
             private bool _hover;
@@ -1463,8 +1436,7 @@ namespace UnityTextTranslator
                     var body = new RectangleF(4, 5, size - 8, size - 9);
                     g.DrawRectangle(pen, body.X, body.Y, body.Width, body.Height);
                     g.FillRectangle(b, size * 0.34f, 5, size * 0.32f, size * 0.22f);
-                    // Стоковая Brushes.White — не создаём/не освобождаем GDI-хендл вручную (прежний
-                    // inline `new SolidBrush(Color.White)` тёк хендлом на каждую сборку иконки).
+                    // стоковая Brushes.White — прежний inline new SolidBrush(Color.White) тёк GDI-хендлом на каждую иконку
                     g.FillRectangle(Brushes.White, 7, size * 0.52f, size - 14, size * 0.26f);
                 }
 

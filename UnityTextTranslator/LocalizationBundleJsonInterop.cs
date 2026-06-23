@@ -8,15 +8,10 @@ using System.Text.RegularExpressions;
 
 namespace UnityTextTranslator
 {
-    /// <summary>
-    /// Экспорт и сборка Unity Asset Bundle (.bundle) ↔ JSON в стиле UABEA (как для .assets).
-    /// Типично: Addressables, например localization-string-tables-*_assets_all.bundle.
-    /// </summary>
+    /// <summary>Экспорт/сборка Unity Asset Bundle (.bundle) ↔ JSON в стиле UABEA; типично Addressables (localization-string-tables-*_assets_all.bundle).</summary>
     internal static class LocalizationBundleJsonInterop
     {
-        /// <summary>
-        /// После <c>SetNewData</c> кешированный <c>GetBaseField</c> может вернуть прежнее дерево — импорт считает «тексты совпадают» и не патчит строки.
-        /// </summary>
+        /// <summary>Без кешей: после <c>SetNewData</c> кешированный <c>GetBaseField</c> вернул бы прежнее дерево — импорт счёл бы «тексты совпадают» и не патчил.</summary>
         private static AssetsManager CreateAssetsManagerForBundleMutation()
         {
             return new AssetsManager
@@ -28,10 +23,7 @@ namespace UnityTextTranslator
             };
         }
 
-        /// <summary>
-        /// Для Addressables вида <c>localization-string-tables-russian(ru)_…</c> или <c>…-english_en_…</c> возвращает код локали.
-        /// Нужно для <c>m_LocaleId.m_Code</c> при импорте JSON из английского бандла в русский.
-        /// </summary>
+        /// <summary>Код локали из имени Addressables-бандла (<c>…russian(ru)…</c>/<c>…english_en…</c>) — для <c>m_LocaleId.m_Code</c> при импорте en→ru.</summary>
         internal static string TryInferStringTableLocaleCodeFromOutputBundlePath(string outputBundlePath)
         {
             if (string.IsNullOrWhiteSpace(outputBundlePath)) return null;
@@ -114,17 +106,13 @@ namespace UnityTextTranslator
                     if (File.Exists(wrote))
                         File.Delete(wrote);
                 }
-                catch
-                {
-                    /* ignore */
-                }
+                catch { }
             }
         }
 
         /// <summary>
-        /// Якорь для поиска <c>*catalog*</c> рядом с <c>StreamingAssets\aa\…</c>.
-        /// Обязательно реальный путь к bundle в папке игры — не временный файл из <see cref="GetBundleDiskWritePath"/>,
-        /// иначе патч каталога ищет «aa» в %TEMP% и завершается с кодом 2.
+        /// Якорь для поиска <c>*catalog*</c> рядом с <c>StreamingAssets\aa\…</c> — обязательно реальный путь к bundle (не temp из
+        /// <see cref="GetBundleDiskWritePath"/>), иначе патч каталога ищет «aa» в %TEMP% и падает с кодом 2.
         /// </summary>
         private static string AddressablesCatalogAnchorPath(string preferredPath, string alternatePath)
         {
@@ -137,16 +125,13 @@ namespace UnityTextTranslator
             return string.IsNullOrEmpty(a) ? b : a;
         }
 
-        /// <summary>
-        /// Иначе исходный UnityFS остаётся открытым после <see cref="AssetsManager.LoadBundleFile"/> и
-        /// <see cref="CommitBundleToRequestedPath"/> не может сделать <see cref="File.Copy"/> на тот же путь (IOException: занят процессом).
-        /// </summary>
+        /// <summary>Иначе UnityFS остаётся открытым после LoadBundleFile и <see cref="CommitBundleToRequestedPath"/> не может File.Copy на тот же путь (IOException: занят).</summary>
         private static void ReleaseBundleManagerHandles(AssetsManager manager)
         {
             if (manager == null)
                 return;
-            try { manager.UnloadAllBundleFiles(); } catch { /* ignore */ }
-            try { manager.UnloadAllAssetsFiles(true); } catch { /* ignore */ }
+            try { manager.UnloadAllBundleFiles(); } catch { }
+            try { manager.UnloadAllAssetsFiles(true); } catch { }
         }
 
         /// <summary>Из пути к stringtables с <c>english(en)</c> получает путь к тому же имени с <c>russian(ru)</c>.</summary>
@@ -163,11 +148,8 @@ namespace UnityTextTranslator
         }
 
         /// <summary>
-        /// Клонирует уже пропатченный english UnityFS в путь russian(ru): везде где <c>m_LocaleId.m_Code</c> — «en», ставит «ru»;
-        /// <c>m_Name</c> с суффиксом <c>_en</c>/<c>_english</c> — в <c>_ru</c>.
-        /// Порядок: LoadBundleFile → LoadAssetsFileFromBundle → правки и <see cref="AssetFileInfo.SetNewData"/> по каждому ассету →
-        /// <see cref="SerializeBundledCabToBytes"/> → <see cref="AssetBundleDirectoryInfo.SetNewData(byte[])"/> →
-        /// <see cref="AssetBundleFile.Pack"/> с LZ4 (при ошибке — сжатие как у исходника).
+        /// Клонирует пропатченный english UnityFS в russian(ru): <c>m_LocaleId.m_Code</c> «en»→«ru», <c>m_Name</c> суффикс <c>_en</c>/<c>_english</c>→<c>_ru</c>.
+        /// Порядок: LoadBundleFile → LoadAssetsFileFromBundle → правки+SetNewData по ассету → CAB в слот → Write.
         /// </summary>
         public static UabeaImportResult CloneEnglishBundleAsRussian(
             string patchedEnglishBundlePath,
@@ -293,10 +275,7 @@ namespace UnityTextTranslator
                             {
                                 vtree = UabeaJsonAssetImporter.TryGetBaseFieldReliable(manager, afileInst, match);
                             }
-                            catch
-                            {
-                                /* ignore */
-                            }
+                            catch { }
 
                             var code = UabeaJsonAssetImporter.TryReadLocaleIdCodeFromBaseField(vtree);
                             aggregate.Messages.Add(
@@ -365,8 +344,8 @@ namespace UnityTextTranslator
             }
             finally
             {
-                try { manager.UnloadAllBundleFiles(); } catch { /* ignore */ }
-                try { manager.UnloadAllAssetsFiles(true); } catch { /* ignore */ }
+                try { manager.UnloadAllBundleFiles(); } catch { }
+                try { manager.UnloadAllAssetsFiles(true); } catch { }
             }
 
             return aggregate;
@@ -472,8 +451,7 @@ namespace UnityTextTranslator
                     if (afileInst == null)
                         continue;
 
-                    // Для каждого CAB: верная class database по UnityVersion этого файла. Раньше DB грузилась
-                    // только из первого CAB — при «пустом» первом блоке или иной версии в другом CAB текст/поля могли не разбираться.
+                    // class database по UnityVersion ЭТОГО CAB: раньше DB грузилась только из первого — при пустом/иноверсионном первом блоке поля не разбирались
                     UabeaJsonAssetImporter.TryLoadClassPackage(manager, afileInst);
                     if (manager.ClassDatabase != null)
                         result.ClassDatabaseLoaded = true;
@@ -505,18 +483,16 @@ namespace UnityTextTranslator
             }
             finally
             {
-                try { manager.UnloadAllBundleFiles(); } catch { /* ignore */ }
-                try { manager.UnloadAllAssetsFiles(true); } catch { /* ignore */ }
+                try { manager.UnloadAllBundleFiles(); } catch { }
+                try { manager.UnloadAllAssetsFiles(true); } catch { }
             }
 
             return result;
         }
 
         /// <summary>
-        /// Тот же менеджер/прелоад, что <see cref="ImportJsonIntoBundle"/>; без JSON — только правка <c>Locale</c> в CAB.
-        /// Если ни один CAB не изменён (<see cref="AssetBundleDirectoryInfo.SetNewData"/> не вызывался), перепаковка не делается:
-        /// у AssetsTools.NET <c>AssetBundleFile.Pack</c> падает (индекс вне массива), если BlockAndDirInfo не трогали.
-        /// В типичном случае «локаль уже разблокирована» просто выходим без записи файла.
+        /// Как <see cref="ImportJsonIntoBundle"/>, но без JSON — только правка <c>Locale</c> в CAB. Если ни один CAB не изменён,
+        /// перепаковки нет (у AssetsTools <c>Pack</c> падает, если BlockAndDirInfo не трогали): «локаль уже разблокирована» → выходим без записи.
         /// </summary>
         public static UabeaImportResult PatchLocalesBundleEnableLanguage(
             string localesBundlePath,
@@ -637,27 +613,16 @@ namespace UnityTextTranslator
             }
             finally
             {
-                try { manager.UnloadAllBundleFiles(); } catch { /* ignore */ }
-                try { manager.UnloadAllAssetsFiles(true); } catch { /* ignore */ }
+                try { manager.UnloadAllBundleFiles(); } catch { }
+                try { manager.UnloadAllAssetsFiles(true); } catch { }
             }
 
             return aggregate;
         }
 
-        /// <summary>
-        /// Сборка JSON обратно в UnityFS bundle. Порядок работы с AssetsTools:
-        /// 1) <see cref="AssetsManager.LoadBundleFile"/> → <see cref="BundleFileInstance"/>;
-        /// 2) для каждого CAB — <see cref="AssetsManager.LoadAssetsFileFromBundle"/>;
-        /// 3) <see cref="UabeaJsonAssetImporter.ImportJsonIntoAssetsFileInstanceFromFolder"/>;
-        /// 4) сериализовать изменённый <see cref="AssetsFileInstance"/> в байты и
-        ///    <see cref="AssetBundleDirectoryInfo.SetNewData(byte[])"/> (не держать «живую» ссылку на asset в каталоге);
-        /// 5) <see cref="WriteBundleWithCompressionMatchingOriginal"/> на диск.
-        /// </summary>
-        /// <param name="bundlePath">Основной bundle (для путей замены и т.п.); должен существовать.</param>
-        /// <param name="loadCabsFromBundlePath">
-        /// Если задан и файл существует — читать UnityFS и CAB отсюда (например english), а <paramref name="bundlePath"/> остаётся целевым (russian для Replace).
-        /// Соответствует сценарию: перезаписать русский бандл содержимым english с правкой локали по имени выходного файла.
-        /// </param>
+        /// <summary>Сборка JSON обратно в UnityFS: LoadBundleFile → по каждому CAB LoadAssetsFileFromBundle → ImportJson… → CAB в слот → запись на диск.</summary>
+        /// <param name="bundlePath">Основной bundle (цель замены/путей); должен существовать.</param>
+        /// <param name="loadCabsFromBundlePath">Если задан — читать UnityFS/CAB отсюда (english), а <paramref name="bundlePath"/> остаётся целевым (russian для Replace).</param>
         public static UabeaImportResult ImportJsonIntoBundle(
             string bundlePath,
             string jsonFolder,
@@ -698,7 +663,7 @@ namespace UnityTextTranslator
             {
                 aggregate.Messages.Add("[Bundle импорт] JSON «" + Path.GetFullPath(jsonFolder.Trim()) + "».");
             }
-            catch { /* ignore */ }
+            catch { }
 
             const bool unpackForImport = true;
             var manager = CreateAssetsManagerForBundleMutation();
@@ -815,8 +780,8 @@ namespace UnityTextTranslator
             }
             finally
             {
-                try { manager.UnloadAllBundleFiles(); } catch { /* ignore */ }
-                try { manager.UnloadAllAssetsFiles(true); } catch { /* ignore */ }
+                try { manager.UnloadAllBundleFiles(); } catch { }
+                try { manager.UnloadAllAssetsFiles(true); } catch { }
             }
 
             return aggregate;
@@ -853,10 +818,7 @@ namespace UnityTextTranslator
             {
                 afileInst.file.GenerateQuickLookup();
             }
-            catch
-            {
-                /* не обязательно */
-            }
+            catch { }
 
             try
             {
@@ -885,9 +847,8 @@ namespace UnityTextTranslator
         }
 
         /// <summary>
-        /// После <see cref="LoadBundleFile"/> с <c>unpackIfPacked=true</c> вызов <see cref="AssetBundleFile.Pack"/>
-        /// в AssetsTools.NET часто даёт NullReferenceException. Пишем только <see cref="AssetBundleFile.Write"/>:
-        /// подменённые через <see cref="CommitBundledCabIntoBundleSlot"/> блоки уходят в поток без повторной LZ4-упаковки.
+        /// После LoadBundleFile(unpack=true) <see cref="AssetBundleFile.Pack"/> в AssetsTools часто кидает NRE — пишем только
+        /// <see cref="AssetBundleFile.Write"/>: подменённые через <see cref="CommitBundledCabIntoBundleSlot"/> блоки уходят без повторной LZ4.
         /// </summary>
         private static void WriteBundleWithCompressionMatchingOriginal(
             BundleFileInstance bunInst,
@@ -956,10 +917,7 @@ namespace UnityTextTranslator
                     ". (114=MonoBehaviour — StringTable: m_TableData.Array[].m_Id + текст в m_Localized или вложенном поле; 49=TextAsset.) " +
                     "Это содержимое того .bundle, что выбран при экспорте (поле «исходный bundle»); если оно не совпадает с файлом, куда писала сборка — экспорт покажет не ту версию.");
             }
-            catch
-            {
-                /* не мешать экспорту */
-            }
+            catch { }
         }
 
         private static void TryDeleteFileQuiet(string path)
@@ -969,10 +927,7 @@ namespace UnityTextTranslator
                 if (!string.IsNullOrEmpty(path) && File.Exists(path))
                     File.Delete(path);
             }
-            catch
-            {
-                /* ignore */
-            }
+            catch { }
         }
 
     }

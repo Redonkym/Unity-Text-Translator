@@ -169,10 +169,7 @@ namespace UnityTextTranslator
                                 mismatch = nResolved != null && nInferred != null &&
                                            !nResolved.Equals(nInferred, StringComparison.OrdinalIgnoreCase);
                             }
-                            catch
-                            {
-                                /* ignore */
-                            }
+                            catch { }
 
                             if ((!string.IsNullOrWhiteSpace(inferred)) &&
                                 string.IsNullOrWhiteSpace(currentGd))
@@ -645,10 +642,7 @@ namespace UnityTextTranslator
                             "Export reads «Source bundle» only — it differs from «Output bundle». Point Source at the file Pack wrote, or exported JSON will still match the old bundle.",
                             "Экспорт читает только поле «исходный bundle». Оно отличается от «выход сборки» — укажите в «исходном» тот же файл, куда писала сборка, иначе JSON останется со старым содержимым."));
                 }
-                catch
-                {
-                    /* ignore */
-                }
+                catch { }
 
                 var gameRoot = bundleLocGameDataFolder;
                 var bundlePath = bundleLocBundlePath;

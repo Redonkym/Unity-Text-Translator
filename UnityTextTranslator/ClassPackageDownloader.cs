@@ -18,9 +18,7 @@ namespace UnityTextTranslator
         public static string ClassDataPath =>
             Path.Combine(AppDataAppFolder, "classdata.tpk");
 
-        /// <summary>
-        /// Гарантирует наличие classdata.tpk в %AppData%\UnityTextTranslator\ (скачивает при необходимости).
-        /// </summary>
+        /// <summary>Гарантирует classdata.tpk в %AppData%\UnityTextTranslator\ (скачивает при необходимости).</summary>
         public static async Task EnsureClassDataPresentAsync(Action<string> log)
         {
             try
@@ -41,10 +39,7 @@ namespace UnityTextTranslator
                         log?.Invoke("Скопирован classdata.tpk из папки с программой в AppData.");
                         return;
                     }
-                    catch
-                    {
-                        // затем попробуем скачать
-                    }
+                    catch { }
                 }
 
                 log?.Invoke("Файл classdata.tpk не найден в AppData (UnityTextTranslator). Скачиваю эталон с GitHub (репозиторий UABEA)…");

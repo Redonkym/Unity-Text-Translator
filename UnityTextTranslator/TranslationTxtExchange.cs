@@ -147,9 +147,7 @@ namespace UnityTextTranslator
             writer.WriteLine();
         }
 
-        /// <summary>
-        /// Инструкции для языковой модели и пользователя + маркер начала данных (построчный «Оригинал»).
-        /// </summary>
+        /// <summary>Инструкции для модели и пользователя + маркер начала данных (построчный «Оригинал»).</summary>
         internal static void WriteOriginalOnlyAiPreamble(StreamWriter writer, string sourceLanguageDisplay, string targetLanguageDisplay)
         {
             if (writer == null)
@@ -191,9 +189,7 @@ namespace UnityTextTranslator
             writer.WriteLine(OriginalOnlyDataBeginMarker);
         }
 
-        /// <summary>
-        /// Строки для позиционного импорта: если в файле есть маркер данных — берётся всё ниже него, иначе весь файл (кроме BOM).
-        /// </summary>
+        /// <summary>Строки для позиционного импорта: есть маркер данных — берём всё ниже него, иначе весь файл (кроме BOM).</summary>
         internal static List<string> ExtractOriginalOnlyPayloadLines(string[] rawLines)
         {
             var all = NormalizeUtf8LinesStripBom(rawLines);

@@ -181,7 +181,6 @@
     <Compile Include="AssetMonoBehaviourFirstLevelDumper.cs" />
     <Compile Include="AssetHelper.cs" />
     <Compile Include="Program.cs" />
-    <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="TranslationItem.cs" />
     <Compile Include="TranslationMemory.cs" />
     <Compile Include="ClassPackageDownloader.cs" />

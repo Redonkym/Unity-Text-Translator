@@ -7,8 +7,7 @@ using Newtonsoft.Json.Linq;
 
 namespace UnityTextTranslator
 {
-    // Drag-and-drop папки/файлов на окно + «Ре-синк после патча игры»
-    // (подтянуть переводы прошлой версии и подсветить новые строки).
+    // Drag-and-drop папки/файлов + «Ре-синк после патча игры» (подтянуть переводы прошлой версии, подсветить новые строки).
     partial class Form1
     {
         // Строки, помеченные как «новые после патча» (нет перевода и нет совпадения в памяти).
@@ -189,11 +188,7 @@ namespace UnityTextTranslator
                 MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
-        /// <summary>
-        /// Собирает пары «оригинал → перевод» из папки прошлой версии: для каждого *.json берёт
-        /// сосед *.json.bak (исходный текст до перевода) и сопоставляет по пути в JSON. Пары
-        /// складывает в память переводов. Возвращает число собранных пар.
-        /// </summary>
+        /// <summary>Пары «оригинал→перевод» из папки прошлой версии: для каждого *.json берёт сосед *.json.bak (оригинал), мапит по пути в JSON, кладёт в память. Возвращает число пар.</summary>
         private int HarvestPairsFromOldVersionFolder(string folder)
         {
             var pairs = new Dictionary<string, string>(StringComparer.Ordinal);
@@ -230,10 +225,7 @@ namespace UnityTextTranslator
                         pairs[original] = translated;
                     }
                 }
-                catch
-                {
-                    /* пропускаем битый файл */
-                }
+                catch { } // битый файл — пропускаем
             }
 
             if (pairs.Count > 0)

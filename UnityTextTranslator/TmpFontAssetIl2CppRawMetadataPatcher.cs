@@ -6,9 +6,8 @@ using System.Text;
 namespace UnityTextTranslator
 {
     /// <summary>
-    /// Фиксированные смещения в сыром теле <c>TMP_FontAsset</c> (MonoBehaviour)
-    /// для сборок IL2CPP, где разбор полей через type tree пустой (карта по <c>tmp_*_raw.bin</c>).
-    /// PPtr на Texture2D / Material не меняются; таблицы глифов не трогаются.
+    /// Фиксированные смещения в сыром теле <c>TMP_FontAsset</c> (MonoBehaviour) для IL2CPP, где type tree пустой (карта по <c>tmp_*_raw.bin</c>).
+    /// PPtr на Texture2D/Material не меняются; таблицы глифов не трогаются.
     /// </summary>
     internal static class TmpFontAssetIl2CppRawMetadataPatcher
     {
@@ -66,8 +65,8 @@ namespace UnityTextTranslator
         }
 
         /// <summary>
-        /// Эвристически ищет в сырых байтах массив <c>m_CharacterTable</c> (count + N * 16 байт) и добавляет/обновляет
-        /// записи кириллицы 0x0400-0x04FF. Формат записи: unicode(int32), glyphIndex(int32), scale(float), padding(int32).
+        /// Эвристически ищет <c>m_CharacterTable</c> (count + N*16 байт) и добавляет/обновляет кириллицу 0x0400-0x04FF.
+        /// Запись: unicode(int32), glyphIndex(int32), scale(float), padding(int32).
         /// </summary>
         /// <param name="raw">Сырой MonoBehaviour (PathID TMP_FontAsset).</param>
         /// <param name="glyphIndexByUnicode">Карта unicode -> glyphIndex (обычно из atlas JSON).</param>

@@ -9,9 +9,8 @@ using System.Windows.Forms;
 namespace UnityTextTranslator
 {
     /// <summary>
-    /// Отдельный модуль «Текстуры»: слева список контейнеров (.assets + бандлы) и текстур выбранного контейнера,
-    /// справа — превью текстуры прямо в приложении. Снизу — журнал. Замена фонов/картинок с запечённым текстом.
-    /// Ядро операций — <see cref="TextureReplacePatcher"/>.
+    /// Модуль «Текстуры»: слева контейнеры (.assets+бандлы) и текстуры, справа превью, снизу журнал. Замена фонов/картинок с запечённым текстом.
+    /// Ядро — <see cref="TextureReplacePatcher"/>.
     /// </summary>
     public partial class Form1
     {
@@ -256,7 +255,7 @@ namespace UnityTextTranslator
             }
             catch (Exception ex)
             {
-                try { ClearContentPanel(); } catch { /* ignore */ }
+                try { ClearContentPanel(); } catch { }
                 var errLabel = new Label
                 {
                     Dock = DockStyle.Fill,
@@ -346,7 +345,7 @@ namespace UnityTextTranslator
         private void AddContainerRow(string path, bool isBundle)
         {
             long len = 0;
-            try { len = new FileInfo(path).Length; } catch { /* ignore */ }
+            try { len = new FileInfo(path).Length; } catch { }
             var idx = texContainerGrid.Rows.Add(
                 Path.GetFileName(path),
                 isBundle ? L("Bundle", "Бандл") : L("Assets", "Ассеты"),
@@ -705,7 +704,7 @@ namespace UnityTextTranslator
                 TexLog(L("Done. Containers with textures: ", "Готово. Контейнеров с текстурами: ") + withTex + "/" + containers.Count
                     + L(", PNG total: ", ", всего PNG: ") + total + ". " + outRoot);
                 if (total > 0 && Directory.Exists(outRoot))
-                    try { Process.Start("explorer.exe", "\"" + outRoot + "\""); } catch { /* не критично */ }
+                    try { Process.Start("explorer.exe", "\"" + outRoot + "\""); } catch { }
             }
             catch (Exception ex)
             {
@@ -801,7 +800,7 @@ namespace UnityTextTranslator
                     + found + " / " + texTextureGrid.Rows.Count
                     + L(" (highlighted). PNGs kept in: ", " (подсвечены). PNG сохранены в: ") + workDir);
                 if (Directory.Exists(workDir))
-                    try { Process.Start("explorer.exe", "\"" + workDir + "\""); } catch { /* не критично */ }
+                    try { Process.Start("explorer.exe", "\"" + workDir + "\""); } catch { }
             }
             catch (Exception ex)
             {
@@ -967,7 +966,7 @@ namespace UnityTextTranslator
             {
                 var img = texPreviewBox.Image;
                 texPreviewBox.Image = null;
-                try { img.Dispose(); } catch { /* ignore */ }
+                try { img.Dispose(); } catch { }
             }
             texContainerGrid = null;
             texTextureGrid = null;
