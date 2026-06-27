@@ -87,7 +87,6 @@
 | `TmpFontAssetIl2CppRawMetadataPatcher.cs` | Фиксированные offset: `m_AtlasWidth/Height`, creationSettings, charset (50 байт ASCII) |
 | `MsdfAtlasGenInterop.cs` | Запуск `msdf-atlas-gen`, `charset.txt`, логи `[msdf ...]` |
 | `Form1.cs` | Кнопка raw-патча, диалог PathID (default **7296**), `Il2CppRawPatchTestMode` |
-| `Tools/msdf-atlas-gen/regenerate-atlas512_sdf.ps1` | Регенерация `atlas512_sdf.png` + `.json` |
 
 Сборка: **.NET Framework 4.8**, x64, WinForms. См. также `AGENTS.md` в корне проекта приложения.
 

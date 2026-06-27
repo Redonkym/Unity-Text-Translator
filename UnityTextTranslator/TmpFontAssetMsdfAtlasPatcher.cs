@@ -1146,7 +1146,95 @@ namespace UnityTextTranslator
             log?.Add("[Grow] Первый добавленный: U+"
                 + (toAdd.Count > 0 && TryReadUnicode(toAdd[0], out var u0) ? u0.ToString("X4", CultureInfo.InvariantCulture) : "----")
                 + " m_Index=" + (maxIndex + 1) + ".");
+
+            // Пост-проверка целостности вырощенного шрифта: ловит причины NRE в Graphic.SetVerticesDirty
+            // (символ без глифа → glyph==null при построении меша) ДО применения к игре. Атлас-размер — из JSON.
+            var atlasWForCheck = (json["atlas"] as JObject)?["width"]?.Value<int>() ?? atlasHpx;
+            var atlasHForCheck = (json["atlas"] as JObject)?["height"]?.Value<int>() ?? atlasHpx;
+            VerifyGrownFontAsset(result, glyphCountOff, raw.Length, n, atlasWForCheck, atlasHForCheck, log);
             return result;
+        }
+
+        /// <summary>Пост-проверка вырощенного шрифта (лог <c>[GrowVerify]</c>): символ→глиф разрешим, m_Index уникальны, rect в атласе.</summary>
+        private static void VerifyGrownFontAsset(
+            byte[] result, int glyphCountOff, int origRawLen, int added, int atlasW, int atlasH, ICollection<string> log)
+        {
+            const int glyphStride = GlyphTableEntrySize; // 52
+            const int charStride = 16;
+
+            var expectedLen = origRawLen + added * (glyphStride + charStride);
+            if (result.Length != expectedLen)
+                log?.Add("[GrowVerify] ОШИБКА размера: " + result.Length + " ≠ ожидаемого " + expectedLen
+                    + " (origRaw=" + origRawLen + ", добавлено=" + added + "). Splice сместился — структура повреждена.");
+
+            var glyphEntriesOff = glyphCountOff + 4;
+            var glyphCount = ReadInt32LittleEndian(result, glyphCountOff);
+            if (glyphCount < 1 || glyphEntriesOff + glyphCount * glyphStride + 4 > result.Length)
+            {
+                log?.Add("[GrowVerify] ОШИБКА: glyphCount=" + glyphCount + " вне диапазона — дальше не проверяю.");
+                return;
+            }
+            var charCountOff = glyphEntriesOff + glyphCount * glyphStride;
+            var charEntriesOff = charCountOff + 4;
+            var charCount = ReadInt32LittleEndian(result, charCountOff);
+            if (charCount < 0 || charEntriesOff + charCount * charStride > result.Length)
+            {
+                log?.Add("[GrowVerify] ОШИБКА: charCount=" + charCount + " вне диапазона — дальше не проверяю.");
+                return;
+            }
+
+            var glyphIndices = new HashSet<int>();
+            var dupIndex = 0;
+            var rectOob = 0;
+            string rectOobSample = null;
+            for (var p = 0; p < glyphCount; p++)
+            {
+                var o = glyphEntriesOff + p * glyphStride;
+                var idx = ReadInt32LittleEndian(result, o);
+                if (!glyphIndices.Add(idx))
+                    dupIndex++;
+                int rx = ReadInt32LittleEndian(result, o + 24), ry = ReadInt32LittleEndian(result, o + 28);
+                int rw = ReadInt32LittleEndian(result, o + 32), rh = ReadInt32LittleEndian(result, o + 36);
+                if (rw <= 0 || rh <= 0 || rx < 0 || ry < 0 || rx + rw > atlasW || ry + rh > atlasH)
+                {
+                    rectOob++;
+                    if (rectOobSample == null)
+                        rectOobSample = "m_Index=" + idx + " rect=" + rx + "," + ry + "," + rw + "," + rh
+                            + " (атлас " + atlasW + "×" + atlasH + ")";
+                }
+            }
+
+            var dangling = 0;
+            string danglingSample = null;
+            for (var c = 0; c < charCount; c++)
+            {
+                var co = charEntriesOff + c * charStride;
+                var unicode = ReadInt32LittleEndian(result, co + 4);
+                var gi = ReadInt32LittleEndian(result, co + 8);
+                if (!glyphIndices.Contains(gi))
+                {
+                    dangling++;
+                    if (danglingSample == null)
+                        danglingSample = "U+" + unicode.ToString("X4", CultureInfo.InvariantCulture) + " → glyphIndex " + gi;
+                }
+            }
+
+            log?.Add("[GrowVerify] glyphCount=" + glyphCount + " (уникальных m_Index=" + glyphIndices.Count
+                + "), charCount=" + charCount + ".");
+            log?.Add("[GrowVerify] символ→глиф: висячих=" + dangling
+                + (danglingSample != null ? " (напр. " + danglingSample + ")" : "")
+                + "; дублей m_Index=" + dupIndex
+                + "; rect вне атласа=" + rectOob + (rectOobSample != null ? " (напр. " + rectOobSample + ")" : "") + ".");
+            if (dangling > 0 || dupIndex > 0)
+                log?.Add("[GrowVerify] ⚠ ВЕРОЯТНАЯ ПРИЧИНА NRE (glyph==null в SetVerticesDirty): "
+                    + (dangling > 0 ? "символы без глифа" : "")
+                    + (dangling > 0 && dupIndex > 0 ? " + " : "")
+                    + (dupIndex > 0 ? "дубли m_Index" : "") + ". Чинить ДО применения к игре.");
+            else if (rectOob > 0)
+                log?.Add("[GrowVerify] rect вне атласа → каша/обрезка (НЕ NRE): сверить m_AtlasWidth/Height и размер атласа.");
+            else
+                log?.Add("[GrowVerify] OK: таблицы согласованы. NRE при подборе, скорее всего, НЕ из таблиц шрифта "
+                    + "(смотреть материал/_GradientScale/перезапись/саму игру).");
         }
 
         /// <summary>Меняет int32 в суффиксе по относительному смещению с проверкой ожидаемого значения.</summary>

@@ -120,6 +120,24 @@ namespace UnityTextTranslator
             return upper >= 2;
         }
 
+        /// <summary>Значение похоже на id сцены/ассета (snake_case/CamelCase/путь/GUID без пробелов), не текст — перевод ломает поиск по id.</summary>
+        private static bool LooksLikeSceneOrAssetId(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return false;
+            var s = value.Trim();
+            if (s.Any(char.IsWhiteSpace))
+                return false; // текст с пробелами — реплика, не id
+            if (LooksLikeTechnicalUnityIdentifier(s))
+                return true;
+            // snake_case (sr_meltdown1) либо число с точкой (9.TalkToLisa)
+            if (s.Length >= 4 && Regex.IsMatch(s, "^[A-Za-z][A-Za-z0-9]*(?:_[A-Za-z0-9]+)+$"))
+                return true;
+            if (Regex.IsMatch(s, @"^[0-9]+\.[A-Za-z][A-Za-z0-9]*$"))
+                return true;
+            return false;
+        }
+
         private static bool PathKeysSuggestVsGraphWire(IReadOnlyList<string> keys)
         {
             if (keys == null || keys.Count < 4)
@@ -211,6 +229,8 @@ namespace UnityTextTranslator
                 var normalized = value?.Trim();
                 if (string.IsNullOrWhiteSpace(normalized) || normalized == "\"\"" || normalized == "''")
                     return;
+                if (LooksLikeSceneOrAssetId(normalized))
+                    return; // id сцены/ассета — не текст
                 list.Add(new TranslationItem
                 {
                     FileName = fileName,

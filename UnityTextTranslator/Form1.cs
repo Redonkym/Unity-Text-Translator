@@ -279,7 +279,22 @@ namespace UnityTextTranslator
             // Диалоговые системы / Unity Localization (напр. SarahsHouse): технические поля, не текст для игрока.
             // uid — GUID; variableName — внутренние переменные (lc_mad, dialog_*); m_Key/m_TableCollectionName —
             // ключ и имя таблицы локализации; onDialogBaseAnim — имя анимации (Idle); location — внутренний id сцены (home/store/gym).
-            "uid", "variableName", "m_Key", "m_TableCollectionName", "onDialogBaseAnim", "location"
+            "uid", "variableName", "m_Key", "m_TableCollectionName", "onDialogBaseAnim", "location",
+            // SarahsHouse: id-поля, чей перевод ломает геймплей (движок ищет по строке-id, а она стала русской).
+            // сцены/локации:
+            "sceneName", "changeLocationTo", "onEndLocation", "blockLeavingSpecificLocation", "manualHintLocation",
+            "followToLocationName", "areaName",
+            // анимации Animator:
+            "anim", "chAnim", "plAnim", "loopAnim", "startAnim", "idleAnim", "failAnim", "alternativeAnim",
+            "transitionAnimCharacter", "transitionAnimPlayer", "starterAnim", "animationLoop", "pauseAnim",
+            "srStartAnim", "takeMenuAnim", "putMenuBackAnim", "animMessageToWaitForStart",
+            // катсцены/секции:
+            "cutscene", "startCutscene", "afterFinishCutscene", "cutsceneOnStop", "cutsceneAfterFirstDialog",
+            "jumpToSectionCutscene", "jumpToSection",
+            // внутренние id (предметы/квесты/переменные/объекты):
+            "itemName", "unlocName", "unlocalizedName", "var", "questNames", "questName", "globalRepIdentificator",
+            "interactionObject", "colliderName", "colliderIn", "door", "doorName", "bedName", "pillowName",
+            "chairName", "electronicsName", "mouseName", "blendshapeName"
         }, StringComparer.OrdinalIgnoreCase);
 
         /// <summary>Доп. к <see cref="SkipKeys"/>: поддеревья с этими именами не считаются игровым текстом при удалении JSON «только метаданные».</summary>
@@ -401,6 +416,10 @@ namespace UnityTextTranslator
             // TMP StyleSheet: значения — это только rich-text-разметка открытия/закрытия тега.
             "m_OpeningDefinition",
             "m_ClosingDefinition",
+            // UI Toolkit (UXML) — разметка VisualTreeAsset (типы, USS-классы, binding-path), не текст; режем поддерево.
+            "m_VisualElementAssets",
+            "m_TemplateAssets",
+            "m_FullTypeName",
         }, StringComparer.OrdinalIgnoreCase);
 
         /// <summary>Поля, которые часто попадают в таблицу, но на экспорт для перевода не нужны (режим «JSON по правилам»).</summary>
