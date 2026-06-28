@@ -8,7 +8,7 @@ using System.Windows.Forms;
 
 namespace UnityTextTranslator
 {
-    /// <summary>Пошаговый мастер замены шрифта на кириллицу: 1) Анализ .assets → 2) атлас из TTF → 3) патч (рост кириллицы) → 4) применить. PathID/размер атласа — из анализа.</summary>
+    /// <summary>Мастер замены шрифта на кириллицу: 1) Анализ → 2) атлас из TTF → 3) патч (рост) → 4) применить. Шаги независимы: недостающее на входе шаг спрашивает сам.</summary>
     public partial class Form1
     {
         // Состояние мастера (между шагами).
@@ -59,15 +59,14 @@ namespace UnityTextTranslator
         // ---- Шаг 1: Анализ ----
         private async void BtnWizAnalyze_Click(object sender, EventArgs e)
         {
-            using (var ofd = new OpenFileDialog())
-            {
-                ofd.Title = L("Pick game .assets (e.g. resources.assets)", "Выберите .assets игры (напр. resources.assets)");
-                ofd.Filter = L("Unity assets (*.assets)|*.assets|All files|*.*", "Unity assets (*.assets)|*.assets|Все файлы|*.*");
-                if (ofd.ShowDialog(this) != DialogResult.OK)
-                    return;
-                wizAssetsPath = ofd.FileName;
-            }
+            if (!EnsureWizAssetsPath(forcePick: true))
+                return;
+            wizFontPathId = 0; // явный анализ — переопределить прежний выбор
+            await RunAnalyzeAsync().ConfigureAwait(true);
+        }
 
+        private async Task RunAnalyzeAsync()
+        {
             var classDataPath = await EnsureClassDataAsync().ConfigureAwait(true);
             if (classDataPath == null)
                 return;
@@ -149,15 +148,9 @@ namespace UnityTextTranslator
             }
         }
 
-        // ---- Шаг 2: Атлас ----
+        // ---- Шаг 2: Атлас ---- (самодостаточен: нужен только TTF; размер атласа — из анализа или 1024)
         private async void BtnWizAtlas_Click(object sender, EventArgs e)
         {
-            if (wizFontPathId == 0)
-            {
-                Log(L("Run step 1 (Analyze) first.", "Сначала шаг 1 (Анализ)."), true);
-                return;
-            }
-
             string ttfPath;
             using (var ofd = new OpenFileDialog())
             {
@@ -169,9 +162,15 @@ namespace UnityTextTranslator
                 ttfPath = ofd.FileName;
             }
 
-            var outDir = Path.Combine(Path.GetDirectoryName(wizAssetsPath) ?? ".", "cyr_atlas");
             var dim = wizAtlasW > 0 ? wizAtlasW : 1024;
-            // -size подбираем под размер атласа (≈ dim/21), чтобы влезли ASCII+кириллица с зазором.
+            if (wizAtlasW <= 0)
+                Log(L("Atlas size unknown (step 1 skipped) — using 1024.", "Размер атласа неизвестен (шаг 1 пропущен) — беру 1024."));
+            // Папка вывода рядом с .assets (если известны), иначе рядом с TTF.
+            var baseDir = !string.IsNullOrWhiteSpace(wizAssetsPath)
+                ? Path.GetDirectoryName(wizAssetsPath)
+                : Path.GetDirectoryName(ttfPath);
+            var outDir = Path.Combine(baseDir ?? ".", "cyr_atlas");
+            // -size под размер атласа (≈ dim/21), чтобы влезли ASCII+кириллица с зазором.
             var glyphSize = Math.Max(24, dim / 21);
 
             var pb = GetActiveProgressBar(assetsModuleProgressBar, progressBar);
@@ -220,20 +219,13 @@ namespace UnityTextTranslator
             }
         }
 
-        // ---- Шаг 3: Патч ----
+        // ---- Шаг 3: Патч ---- (если шаги 1/2 пропущены — спросит .assets/PathID и атлас сам)
         private async void BtnWizPatch_Click(object sender, EventArgs e)
         {
-            if (wizFontPathId == 0 || string.IsNullOrWhiteSpace(wizAssetsPath))
-            {
-                Log(L("Run step 1 (Analyze) first.", "Сначала шаг 1 (Анализ)."), true);
+            if (!await EnsureWizFontAsync().ConfigureAwait(true))
                 return;
-            }
-            if (string.IsNullOrWhiteSpace(wizAtlasPng) || string.IsNullOrWhiteSpace(wizAtlasJson)
-                || !File.Exists(wizAtlasPng) || !File.Exists(wizAtlasJson))
-            {
-                Log(L("Run step 2 (atlas) first.", "Сначала шаг 2 (атлас)."), true);
+            if (!EnsureWizAtlasFiles())
                 return;
-            }
 
             var classDataPath = await EnsureClassDataAsync().ConfigureAwait(true);
             if (classDataPath == null)
@@ -285,19 +277,11 @@ namespace UnityTextTranslator
             }
         }
 
-        // ---- Шаг 4: Применить ----
+        // ---- Шаг 4: Применить ---- (если шаг 3 пропущен — спросит готовый .cyr.assets)
         private void BtnWizApply_Click(object sender, EventArgs e)
         {
-            if (string.IsNullOrWhiteSpace(wizOutputPath) || !File.Exists(wizOutputPath))
-            {
-                Log(L("Run step 3 (patch) first.", "Сначала шаг 3 (патч)."), true);
+            if (!EnsureWizApplyInputs())
                 return;
-            }
-            if (string.IsNullOrWhiteSpace(wizAssetsPath) || !File.Exists(wizAssetsPath))
-            {
-                Log(L("Original .assets not found.", "Оригинальный .assets не найден."), true);
-                return;
-            }
 
             var confirm = MessageBox.Show(this,
                 L("Replace original:\n" + wizAssetsPath + "\nwith patched file? A .bak backup will be created.",
@@ -319,6 +303,117 @@ namespace UnityTextTranslator
             {
                 Log(L("Apply failed: ", "Применение не удалось: ") + ex.Message, true);
             }
+        }
+
+        // ---- Восстановление недостающего состояния (чтобы стартовать с любого шага) ----
+
+        /// <summary>Гарантирует путь к .assets: при forcePick всегда спрашивает, иначе только если не задан/пропал.</summary>
+        private bool EnsureWizAssetsPath(bool forcePick)
+        {
+            if (!forcePick && !string.IsNullOrWhiteSpace(wizAssetsPath) && File.Exists(wizAssetsPath))
+                return true;
+            using (var ofd = new OpenFileDialog())
+            {
+                ofd.Title = L("Pick game .assets (e.g. resources.assets)", "Выберите .assets игры (напр. resources.assets)");
+                ofd.Filter = L("Unity assets (*.assets)|*.assets|All files|*.*", "Unity assets (*.assets)|*.assets|Все файлы|*.*");
+                if (!string.IsNullOrWhiteSpace(wizAssetsPath))
+                    ofd.FileName = wizAssetsPath;
+                if (ofd.ShowDialog(this) != DialogResult.OK)
+                    return false;
+                wizAssetsPath = ofd.FileName;
+                return true;
+            }
+        }
+
+        /// <summary>Гарантирует PathID шрифта: если неизвестен — спрашивает .assets и запускает анализ.</summary>
+        private async Task<bool> EnsureWizFontAsync()
+        {
+            if (wizFontPathId != 0 && !string.IsNullOrWhiteSpace(wizAssetsPath) && File.Exists(wizAssetsPath))
+                return true;
+            if (!EnsureWizAssetsPath(forcePick: false))
+                return false;
+            await RunAnalyzeAsync().ConfigureAwait(true);
+            if (wizFontPathId == 0)
+                Log(L("Font PathID unknown — run step 1 (Analyze).", "PathID шрифта неизвестен — выполните шаг 1 (Анализ)."), true);
+            return wizFontPathId != 0;
+        }
+
+        /// <summary>Гарантирует PNG+JSON атласа: если нет — спрашивает PNG, JSON берёт рядом или тоже спрашивает.</summary>
+        private bool EnsureWizAtlasFiles()
+        {
+            if (!string.IsNullOrWhiteSpace(wizAtlasPng) && !string.IsNullOrWhiteSpace(wizAtlasJson)
+                && File.Exists(wizAtlasPng) && File.Exists(wizAtlasJson))
+                return true;
+
+            using (var ofd = new OpenFileDialog())
+            {
+                ofd.Title = L("Pick atlas PNG (from step 2)", "Выберите PNG атласа (из шага 2)");
+                ofd.Filter = L("Atlas PNG (*.png)|*.png|All files|*.*", "PNG атласа (*.png)|*.png|Все файлы|*.*");
+                if (!string.IsNullOrWhiteSpace(wizAtlasPng))
+                    ofd.FileName = wizAtlasPng;
+                if (ofd.ShowDialog(this) != DialogResult.OK)
+                    return false;
+                wizAtlasPng = ofd.FileName;
+            }
+
+            var guessJson = Path.ChangeExtension(wizAtlasPng, ".json");
+            if (File.Exists(guessJson))
+            {
+                wizAtlasJson = guessJson;
+            }
+            else
+            {
+                using (var ofd = new OpenFileDialog())
+                {
+                    ofd.Title = L("Pick atlas JSON (from step 2)", "Выберите JSON атласа (из шага 2)");
+                    ofd.Filter = L("Atlas JSON (*.json)|*.json|All files|*.*", "JSON атласа (*.json)|*.json|Все файлы|*.*");
+                    if (ofd.ShowDialog(this) != DialogResult.OK)
+                        return false;
+                    wizAtlasJson = ofd.FileName;
+                }
+            }
+            return File.Exists(wizAtlasPng) && File.Exists(wizAtlasJson);
+        }
+
+        /// <summary>Гарантирует вход для применения: пропатченный .cyr.assets и оригинал (выводится из имени или спрашивается).</summary>
+        private bool EnsureWizApplyInputs()
+        {
+            if (string.IsNullOrWhiteSpace(wizOutputPath) || !File.Exists(wizOutputPath))
+            {
+                using (var ofd = new OpenFileDialog())
+                {
+                    ofd.Title = L("Pick patched .cyr.assets (from step 3)", "Выберите пропатченный .cyr.assets (из шага 3)");
+                    ofd.Filter = L("Patched assets (*.assets)|*.assets|All files|*.*", "Пропатченные assets (*.assets)|*.assets|Все файлы|*.*");
+                    if (!string.IsNullOrWhiteSpace(wizOutputPath))
+                        ofd.FileName = wizOutputPath;
+                    if (ofd.ShowDialog(this) != DialogResult.OK)
+                        return false;
+                    wizOutputPath = ofd.FileName;
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(wizAssetsPath) || !File.Exists(wizAssetsPath))
+            {
+                var guess = DeriveOriginalFromCyr(wizOutputPath); // resources.cyr.assets → resources.assets
+                if (guess != null && File.Exists(guess))
+                    wizAssetsPath = guess;
+                else if (!EnsureWizAssetsPath(forcePick: true)) // спросить оригинал для замены
+                    return false;
+            }
+            return !string.IsNullOrWhiteSpace(wizAssetsPath) && File.Exists(wizAssetsPath);
+        }
+
+        /// <summary><c>X.cyr.assets</c> → <c>X.assets</c> (оригинал рядом с пропатченным), иначе null.</summary>
+        private static string DeriveOriginalFromCyr(string cyrPath)
+        {
+            if (string.IsNullOrWhiteSpace(cyrPath))
+                return null;
+            const string marker = ".cyr.assets";
+            var name = Path.GetFileName(cyrPath);
+            if (!name.EndsWith(marker, StringComparison.OrdinalIgnoreCase))
+                return null;
+            var orig = name.Substring(0, name.Length - marker.Length) + ".assets";
+            return Path.Combine(Path.GetDirectoryName(cyrPath) ?? "", orig);
         }
 
         private async Task<string> EnsureClassDataAsync()
